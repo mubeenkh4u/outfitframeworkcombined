@@ -1,22 +1,35 @@
-# PBZ Outfit Framework Combined — compatibility candidate 0.1.0
+# PBZ Outfit Framework Combined v0.2.0 — complete-asset compatibility candidate
 
-**Not a complete release.** The Appearance Studio source branch contains only ~5.8 MB of files and an incomplete ExpansionPhysics container. The original archive is ~465 MB compressed. Restore all missing original Studio assets before testing. Do not install the incomplete ExpansionPhysics PAK alone.
-
-## Components
-- Soul's Appearance Studio 1.3.3 (Nexus 559, Szy1115)
+A private combined installation of:
+- Soul's Appearance Studio v1.3.3 (Nexus 559, Szy1115)
 - Ateliê do Soul (Nexus 1463)
 - PBZ Outfit Framework (Nexus 903, Melina)
-- Existing PBZ Mods Menu loader required separately; no additional DLL supplied.
 
-The framework's global appearance table and Atelier slot 8716 remain separate cooked containers. The two original Mods Menu entries remain discoverable, with a shared compatibility module. No original branch is altered.
+Preserves the original upstream asset containers without repacking or modifying them. Includes the 22 Appearance Studio triplets plus the Atelier and Framework triplets (24 triplets, 72 cooked files). Studio assets are Git LFS objects and their pointers are not playable files.
 
-## Installation / test
-1. Back up saves and installed mods. Use the complete original Studio asset triplets, including the missing assets not present in GitHub. Keep the original names and paths.
-2. Install the framework triplet in ProjectPBZ/Content/Paks/~mods and the Atelier triplet in the same directory. Remove old duplicate copies of these scripts, and do not install a second Studio loader edition.
-3. Overlay the two patched JavaScript directories from this repository. Preserve the original asset files that are absent here. Never install a lone .pak from an incomplete IoStore triplet.
-4. Start the game using the Studio-supported native build (Steam 26367565 / UE 5.7.4-302256+b7c82f11b864).
-5. In Atelier, choose a body, hat, and dye. The new Controle do chapéu option chooses Atelier or Studio ownership. Selecting Atelier's hat or hat color takes ownership back. Confirming a Studio hat while Atelier is equipped hands ownership to Studio. The two saved selections are separate.
-6. Verify all six body sets, all original hats, garment and hat dye, hair, faces, masks, eyes, sclera, glow, lighting, keyboard/controller navigation, switching tabs, preview, respawn, cutscenes, save/reload and disable/re-enable. Verify another framework outfit remains unaffected.
+## Installation
+1. Back up saves and any existing mod files. Close the game.
+2. Use a Git LFS-enabled checkout of this repository's main branch and run git lfs pull. Do not use a source archive containing only LFS pointers.
+3. Optional but recommended: with Node.js installed, run tools/Build-Release.ps1 to validate binary hashes, all runtime JS, and mock tests before building a ZIP. If using PortableGit, the script defaults to D:\Downloads\Programs\PortableGit\bin\git.exe (override -GitExe as needed). Or run node tools/verify.cjs after setting PBZ_GIT_EXE to the local Git executable.
+4. Install the existing PBZ Mods Menu loader separately (hid.dll). This package does not add another loader DLL or UE4SS. Use only the Mods Menu edition of Studio. Disable/remove the duplicate Studio folder at ProjectPBZ/PBZModLoader/mods/PBZSoulHairStudio and remove older original copies of these two script mods before copying the new folders.
+5. Copy the packaged ProjectPBZ directory into the game root. Keep the original asset names and do not leave obsolete Studio asset versions installed alongside these triplets. Do not delete unrelated mods.
+6. The Studio's original engine/native source fingerprint guards remain active (Steam build 26367565, UE 5.7.4-302256+b7c82f11b864).
 
-## Limitations
-Static source integration only; no Unreal runtime test. Cooked package internals not rebuilt. Native fingerprint checks retained. Missing Studio assets prevent a complete standalone release. Preserve author attribution and respect original distribution permissions.
+## How the shared customization works
+- Outfit Framework owns the global appearance catalog. Atelier retains its native outfit row PBZ_OutFit_ACAtelieSoul, slot 8716, body sets, dyes, outfit unlock and wardrobe UI.
+- Studio retains its original Hair and Masks tabs, hair/face/eye/mask customization, physics, visual settings and its full 112-color palette; Atelier reads the same palette.
+- On Atelier's custom outfit, Atelier owns the native hat slots by default. The Atelier wardrobe's Controle do chapéu option selects either controller. Selecting a hat or hat color in Atelier reclaims control; confirming an explicit Studio hat while the custom outfit is equipped transfers control to Studio. Selecting Restore Defaults in Studio returns control of the Atelier hat to Atelier while resetting Studio choices. Other outfits use Studio's original hat behavior.
+- A temporary hat preview is isolated to the active preview doll; it does not change committed ownership or affect the player. Preview transitions suppress Studio writes and clear stale preview context on close/reuse. Body replacement notifications allow Studio to refresh after Atelier swaps a body. Atelier yields to forced-default cinematic appearance.
+- Both original script entrypoints are preserved for loader discovery, but share one compatibility coordinator. The duplicate PBZModLoader edition is deliberately omitted. Existing saved preferences are preserved; a new controller field defaults to Atelier.
+
+## Verification and limitations
+- All 24 runtime JS modules passed syntax checks. The compatibility test suite passed 41 checks with mock UE objects, including hat transitions, preview isolation, shared palette and six body presets.
+- tools/asset-manifest.json pins the exact Git blobs from the three source branches. tools/verify.cjs verifies all downloaded files against their Git blob/LFS SHA-256 and size, validates IoStore TOC magic, and rejects incomplete/extra cooked triplets.
+- Repository file layout and LFS pointer references are verified; actual LFS binary downloads must still be checked locally using the verifier. No Unreal/PuerTS runtime or visual testing was possible here. Third-party mods replacing the global appearance table or slot 8716 are not automatically merged. A confirmed complete standalone game-tested release requires testing in PBZ.
+
+## In-game acceptance test
+1. Check the custom Atelier outfit appears; equip it. Switch all six body presets and all hat choices, including no hat; check body/hat dyes.
+2. Open the Hair and Masks tabs and test native, NPC and WWM hair, physics, face, masks, iris and sclera, glow and fill light. Switch among normal and custom outfits.
+3. Test Atelier-owned hat + Studio hair/mask. Preview a Studio hat without confirming, cancel, and confirm. Switch back in Atelier and test its dye. Confirm Restore Defaults returns ownership to Atelier.
+4. Switch tabs with keyboard/mouse and controller, reopen wardrobe, load a save, respawn and test cutscenes/new story cycle. Test another Outfit Framework outfit remains usable.
+5. If anything fails, collect PBZModsMenu logs, ACAtelieSoul-status.txt and the Studio console logs. Do not distribute externally without the original authors' permissions.

@@ -28,6 +28,11 @@ function createCompatibility() {
             if (!isAtelier(outfit) || !sources.atelier || !sources.studio) return false;
             return sources.atelier.claimStudioHat();
         },
+        claimAtelierHat(outfit) {
+            if (!isAtelier(outfit) || !sources.atelier) return false;
+            return sources.atelier.claimAtelierHat();
+        },
+        notifyBodyChanged(component) { sources.studio?.bodyChanged?.(component); },
         studioPreviewPage() { return sources.studio?.previewPage() || null; },
         releaseAtelierHat(component, outfit) {
             if (isAtelier(outfit) && !atelierOwnsHat(outfit, component)) sources.atelier?.releaseHat(component);
@@ -38,5 +43,5 @@ function createCompatibility() {
         studioHasHat(component) { return !!sources.studio?.hasHat(component); }
     };
 }
-const key = "__PBZCombinedOutfitCompatibility_v1";
+const key = "__PBZCombinedOutfitCompatibility_v2";
 module.exports = globalThis[key] ||= createCompatibility();

@@ -1,5 +1,9 @@
 "use strict";
-
+// Keep one active Atelier controller per Mods Menu VM, including reloads.
+const previousInstance = globalThis.__PBZCombinedAtelierInstance;
+if (previousInstance?.active) {
+    module.exports = previousInstance.exports;
+} else {
 const UE = require("ue"), puerts = require("puerts");
 const roupas = require("./roupas"), vestuario = require("./vestuario"), cores = require("./cores");
 const compat = require("PBZModsMenu/Mods/PBZSoulHairStudioMenu/combined-compat");
@@ -18,6 +22,9 @@ function valido(obj) {
     if (!obj) return false;
     try { return UE.KismetSystemLibrary.IsValid(obj); }
     catch (erro) { if (/invalid object|object is invalid/i.test(String(erro))) return false; throw erro; }
+}
+function aparenciaForcada(comp) {
+    return typeof comp.ShouldForceDefaultAppearance === "function" && comp.ShouldForceDefaultAppearance();
 }
 function tentar(nome, acao) {
     try { return acao(); } catch (erro) { avisar(nome + ": " + erro); }
@@ -63,7 +70,7 @@ function reunir(game, transicoes, destinos) {
     function incluir(ator, origem) {
         if (!valido(ator) || atores.has(ator)) return;
         const comp = ator.GetComponentByClass(UE.PBZAppearanceComponent.StaticClass());
-        if (valido(comp) && comp.GetOwner() === ator && String(comp.GetEffectiveOutfit()).toLowerCase() === roupa.toLowerCase()) atores.set(ator, { comp, origem });
+        if (valido(comp) && comp.GetOwner() === ator && !aparenciaForcada(comp) && compat.isAtelier(comp.GetEffectiveOutfit())) atores.set(ator, { comp, origem });
     }
     incluir(UE.GameplayStatics.GetPlayerPawn(game, 0), "jogador");
     const seq = UE.Object.Find(cena);
@@ -82,7 +89,7 @@ function reunir(game, transicoes, destinos) {
     if (valido(ator) && modo.getActivePreviewDoll() === ator) {
         const emTransicao = tela.previewPhase != null && tela.previewPhase !== 0;
         const exibido = String(tela.getDisplayedPreviewOutfitID());
-        if (!emTransicao && !ator.bHidden && exibido.toLowerCase() === roupa.toLowerCase()) {
+        if (!emTransicao && !ator.bHidden && !aparenciaForcada(comp) && compat.isAtelier(exibido)) {
             atores.set(ator, { comp, origem: "previa" });
         } else {
             atores.delete(ator);
@@ -168,26 +175,36 @@ function atualizar() {
     }
     if (pendente) { pendente = false; atualizar(); }
 }
+function trocarControlador(id) {
+    if (!ativo) return false;
+    prefs.abrir();
+    if (ler("controladorChapeu") === id) return false;
+    escolher("controladorChapeu", id);
+    return true;
+}
 const unregisterCompat = compat.registerAtelier({
-    controller() { prefs.abrir(); return ler("controladorChapeu"); },
-    hatRow() { prefs.abrir(); return vestuario.chapeus.find(x => x.id === ler("chapeu"))?.linha || "None"; },
-    claimStudioHat() {
-        if (!ativo) return false;
+    controller() { prefs.abrir(); return prefs.valores.controladorChapeu === "Studio" ? "Studio" : "Atelie"; },
+    hatRow() {
         prefs.abrir();
-        if (ler("controladorChapeu") === "Studio") return false;
-        escolher("controladorChapeu", "Studio");
-        return true;
+        const item = vestuario.chapeus.find(x => x.id === prefs.valores.chapeu) || vestuario.chapeus.find(x => x.id === padroes.chapeu);
+        return item?.linha || "None";
     },
+    claimStudioHat: () => trocarControlador("Studio"),
+    claimAtelierHat: () => trocarControlador("Atelie"),
     releaseHat(comp) {
         // Release the dye MID before releasing the mesh and fur material.
+        if (!armario.temChapeu(comp)) return;
         tintas.liberarChapeu(comp);
         armario.cederChapeu(comp);
     }
 });
+const instance = { active: true, exports };
+globalThis.__PBZCombinedAtelierInstance = instance;
 const timer = setInterval(atualizar, 330);
 atualizar();
 exports.ready = true;
 exports.stop = function parar() {
+    if (!ativo) return;
     ativo = false;
     clearInterval(timer);
     tentar("Fechar guarda-roupa", () => ui.parar());
@@ -195,4 +212,7 @@ exports.stop = function parar() {
     tentar("Restaurar vestuário", () => armario.parar());
     unregisterCompat();
     exports.ready = false;
+    instance.active = false;
+    if (globalThis.__PBZCombinedAtelierInstance === instance) delete globalThis.__PBZCombinedAtelierInstance;
 };
+}

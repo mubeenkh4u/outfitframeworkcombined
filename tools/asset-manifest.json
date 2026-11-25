@@ -1,0 +1,444 @@
+{
+  "format": 1,
+  "sourceCommits": {
+    "studio": "9c639446d61e0a3e2f0f3ebdd2f03d35a2cec334",
+    "atelier": "e3ca2f99a2be7d129a3e2ad6ceb12376a1695f4c",
+    "framework": "58b064b2a64b6fbd7a207eb236a8d189f2b99732"
+  },
+  "assetCount": 72,
+  "tripletCount": 24,
+  "assets": [
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/PBZOutfit_ACAtelieSoul_P.pak",
+      "gitBlob": "18f9a09981bc1f5536728ac360632aeb814d9c8f",
+      "storage": "git",
+      "source": "atelier"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/PBZOutfit_ACAtelieSoul_P.ucas",
+      "gitBlob": "fea765c753fe71bc0524b30db995992f8d2f6c37",
+      "storage": "git",
+      "source": "atelier"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/PBZOutfit_ACAtelieSoul_P.utoc",
+      "gitBlob": "b9e8bd87d34fe43e29610b3c6c4c8e22f8048029",
+      "storage": "git",
+      "source": "atelier"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/PBZOutfitFramework_P.pak",
+      "gitBlob": "00c06c786f4daed9a55a5d33ff14eedbd1280fb4",
+      "storage": "git",
+      "source": "framework"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/PBZOutfitFramework_P.ucas",
+      "gitBlob": "697f76326a97e1c36f80f36e6e7ce2e54ffe4209",
+      "storage": "git",
+      "source": "framework"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/PBZOutfitFramework_P.utoc",
+      "gitBlob": "bdbedbde942a48a007a9683a1108e3a3d6ed64d0",
+      "storage": "git",
+      "source": "framework"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_Artist_P.pak",
+      "gitBlob": "feb4dc8f8b98e7550c1caafbd29f7efe89efb76e",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_Artist_P.ucas",
+      "gitBlob": "83e7f3441e054a54e7066e3517977b0dafe3dd80",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_Artist_P.utoc",
+      "gitBlob": "1d4441c5e620e19e6a576ef15546e26cb3050d7f",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_ColorIcons_P.pak",
+      "gitBlob": "feb4dc8f8b98e7550c1caafbd29f7efe89efb76e",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_ColorIcons_P.ucas",
+      "gitBlob": "eba3f4bac115b7832e63250bc16c4507a759ee48",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_ColorIcons_P.utoc",
+      "gitBlob": "a369db1d0ada6b670896d5d13a6537629ab87e25",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_ExpansionIcons_P.pak",
+      "gitBlob": "feb4dc8f8b98e7550c1caafbd29f7efe89efb76e",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_ExpansionIcons_P.ucas",
+      "gitBlob": "da450ecc0ffd7d58ad6bda0dbe9df6105bc76104",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_ExpansionIcons_P.utoc",
+      "gitBlob": "e76f9aed61f1cb078e623ef1d6e32eddaa2bd9c7",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_ExpansionPhysics_P.pak",
+      "gitBlob": "feb4dc8f8b98e7550c1caafbd29f7efe89efb76e",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_ExpansionPhysics_P.ucas",
+      "gitBlob": "f2382505be2edec9ee5d3dd6f449521f64631792",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_ExpansionPhysics_P.utoc",
+      "gitBlob": "de5125af493fe8dab8466009466d0e4b8b71fb8f",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_EyeGlow_P.pak",
+      "gitBlob": "feb4dc8f8b98e7550c1caafbd29f7efe89efb76e",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_EyeGlow_P.ucas",
+      "gitBlob": "cd7cd2bcbe3426fdf10489e0267a7e4742c28778",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_EyeGlow_P.utoc",
+      "gitBlob": "ee199a3a50da89cc2c319cc10a60ff5bf8bab375",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_EyePalette_P.pak",
+      "gitBlob": "feb4dc8f8b98e7550c1caafbd29f7efe89efb76e",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_EyePalette_P.ucas",
+      "gitBlob": "2cfa5359af734555a81466656cf0e296490c41e4",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_EyePalette_P.utoc",
+      "gitBlob": "446c51ae774807788d487dde2a1d07be20186b7c",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_Hair40_P.pak",
+      "gitBlob": "feb4dc8f8b98e7550c1caafbd29f7efe89efb76e",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_Hair40_P.ucas",
+      "gitBlob": "fb3272fbbe03871d5f24c9dbe03a19ff3bc06ee8",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_Hair40_P.utoc",
+      "gitBlob": "5d82dff18e5e8915f14e07a996bc5158d8a0f0c6",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_HairIsolationNPC_P.pak",
+      "gitBlob": "feb4dc8f8b98e7550c1caafbd29f7efe89efb76e",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_HairIsolationNPC_P.ucas",
+      "gitBlob": "db032a68e42df010382e92d24077dff09b8881bc",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_HairIsolationNPC_P.utoc",
+      "gitBlob": "20de62dae67b0055eab90235344da574c567b686",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_HairIsolationSoul_P.pak",
+      "gitBlob": "feb4dc8f8b98e7550c1caafbd29f7efe89efb76e",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_HairIsolationSoul_P.ucas",
+      "gitBlob": "75154bd6629f95a03912515397b6ffdd341ef73d",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_HairIsolationSoul_P.utoc",
+      "gitBlob": "27cdb263b6b163e585c82e2aa4cf0ceaaaab630a",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_HairIsolationWWM_P.pak",
+      "gitBlob": "feb4dc8f8b98e7550c1caafbd29f7efe89efb76e",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_HairIsolationWWM_P.ucas",
+      "gitBlob": "93093e47618fd426673c45c52edfed2130090c06",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_HairIsolationWWM_P.utoc",
+      "gitBlob": "c2527361fd4b73793a0487516b702c0b73bad9f6",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_HatIcons_P.pak",
+      "gitBlob": "feb4dc8f8b98e7550c1caafbd29f7efe89efb76e",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_HatIcons_P.ucas",
+      "gitBlob": "326d07fc2e361c3c57af51c9c8c8bf24234d50ed",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_HatIcons_P.utoc",
+      "gitBlob": "8ae9779320c7c22b1afe79a566b9ec9224ea6793",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_Icons_P.pak",
+      "gitBlob": "feb4dc8f8b98e7550c1caafbd29f7efe89efb76e",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_Icons_P.ucas",
+      "gitBlob": "b746bf3835a3bbff9d58751f0e503692f6a0ee4e",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_Icons_P.utoc",
+      "gitBlob": "ae1c180efa68a6eadd8079a782b1df94f78cae03",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_OutfitContact_P.pak",
+      "gitBlob": "feb4dc8f8b98e7550c1caafbd29f7efe89efb76e",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_OutfitContact_P.ucas",
+      "gitBlob": "8acf392bb82c6ab3d3e520df85657e43918ecf21",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_OutfitContact_P.utoc",
+      "gitBlob": "928b75510db541c8e8ef0e693256166dccb26a25",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_P.pak",
+      "gitBlob": "feb4dc8f8b98e7550c1caafbd29f7efe89efb76e",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_P.ucas",
+      "gitBlob": "188732ce2a893e6a6ec843344bb23f221f227c3b",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_P.utoc",
+      "gitBlob": "c17ed1b1be1c046403ce08c82d31e7dccb8618eb",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_Physics_P.pak",
+      "gitBlob": "feb4dc8f8b98e7550c1caafbd29f7efe89efb76e",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_Physics_P.ucas",
+      "gitBlob": "e227abc0b63fc0e546f4e7702f13e4787c1b8f6c",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_Physics_P.utoc",
+      "gitBlob": "90dacf1679498bdd6f1d342c672bb8d9f517c6bc",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_Revision9_P.pak",
+      "gitBlob": "feb4dc8f8b98e7550c1caafbd29f7efe89efb76e",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_Revision9_P.ucas",
+      "gitBlob": "a6ca1ee3abe45cf97414653a3e2c23b1914caedd",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_Revision9_P.utoc",
+      "gitBlob": "fa0cdfd67463b69a90c27be4e433cbdb1c95a6b6",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_WWM_P.pak",
+      "gitBlob": "feb4dc8f8b98e7550c1caafbd29f7efe89efb76e",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_WWM_P.ucas",
+      "gitBlob": "f7798b5927f0973006a032e1f33d1326e6969097",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_WWM_P.utoc",
+      "gitBlob": "af0585ca666e8a40e769f2ac01be99967cbf263e",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_WWM2_P.pak",
+      "gitBlob": "feb4dc8f8b98e7550c1caafbd29f7efe89efb76e",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_WWM2_P.ucas",
+      "gitBlob": "55e13a65269769af07bb0e780845d73312e8a604",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_WWM2_P.utoc",
+      "gitBlob": "d54d3f46e40615d5e01476340e406f2824ab76d2",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_WWMHairSurface_P.pak",
+      "gitBlob": "feb4dc8f8b98e7550c1caafbd29f7efe89efb76e",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_WWMHairSurface_P.ucas",
+      "gitBlob": "d1ea419600599861096d56aaeee93b96a0e58bfd",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_WWMHairSurface_P.utoc",
+      "gitBlob": "8ded21ef913844fe7b2711f95653d0387cebfcd4",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_WWMLuxuryLegs_P.pak",
+      "gitBlob": "feb4dc8f8b98e7550c1caafbd29f7efe89efb76e",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_WWMLuxuryLegs_P.ucas",
+      "gitBlob": "2e5463c81275451352d768667136f63a2658cdb9",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_WWMLuxuryLegs_P.utoc",
+      "gitBlob": "1a00dc67313c0614ffbbeeda60a7c615af1c0707",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_WWMPenglai52_P.pak",
+      "gitBlob": "feb4dc8f8b98e7550c1caafbd29f7efe89efb76e",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_WWMPenglai52_P.ucas",
+      "gitBlob": "54e24417ef7b505d04558faade6d147f6eff514b",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_WWMPenglai52_P.utoc",
+      "gitBlob": "fa4e687eefc02af21db11b742bef6fe18e60c0f3",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_WWMStrands_P.pak",
+      "gitBlob": "feb4dc8f8b98e7550c1caafbd29f7efe89efb76e",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_WWMStrands_P.ucas",
+      "gitBlob": "e1cf126a0ea20a269ed8720976d51ca8e2cd76ce",
+      "storage": "lfs",
+      "source": "studio"
+    },
+    {
+      "path": "ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_WWMStrands_P.utoc",
+      "gitBlob": "effbd01a4ed0415f42302f20d5fdb213d0f1e21f",
+      "storage": "lfs",
+      "source": "studio"
+    }
+  ]
+}

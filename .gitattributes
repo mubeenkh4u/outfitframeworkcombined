@@ -1,0 +1,8 @@
+# Appearance Studio's existing LFS objects (including its small companion files).
+ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_*.pak filter=lfs diff=lfs merge=lfs -text
+ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_*.ucas filter=lfs diff=lfs merge=lfs -text
+ProjectPBZ/Content/Paks/~mods/zzzz_PBZSoulHairStudio_*.utoc filter=lfs diff=lfs merge=lfs -text
+# Framework and Atelier are original small Git blobs, not LFS pointers.
+*.pak -text
+*.ucas -text
+*.utoc -text

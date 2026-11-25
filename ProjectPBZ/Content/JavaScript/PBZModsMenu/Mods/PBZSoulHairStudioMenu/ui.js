@@ -90,11 +90,15 @@ function image(button, info) {
     button.IconImage.SetBrush(info.brush); button.IconImage.SetDesiredSizeOverride(R.vec2(93, 93));
 }
 const compat = require("./combined-compat");
+function committedAtelierHat() {
+    const player = UE.PBZAppearanceComponent.GetPBZAppearanceComponent(R.gi());
+    return R.valid(player) ? compat.atelierHatRow(player.GetEffectiveOutfit(), player) : undefined;
+}
 function isEquipped(info) {
     const choice = info.page.settings.choice[info.kind];
     if (info.kind !== "hat") return info.item.id === choice;
     const player = UE.PBZAppearanceComponent.GetPBZAppearanceComponent(R.gi());
-    if (!R.valid(player)) return false;
+    if (!R.valid(player)) return choice !== "outfit" && info.item.id === choice;
     const outfit = player.GetEffectiveOutfit();
     const atelierHat = compat.atelierHatRow(outfit, player);
     if (atelierHat !== undefined) return !player.IsHatHiddenForOutfit(outfit) && atelierHat === info.item.id;
@@ -291,7 +295,7 @@ class HairPage {
         this.hoverInfo = null;
         const selected = this.currentCard();
         if (selected) this.previewCard(selected, false);
-        else { ++this.serial; this.pending = { ...this.settings.choice }; this.preview(); }
+        else { ++this.serial; this.pendingKind = null; this.pending = { ...this.settings.choice }; this.preview(); }
     }
     selectButton(info) {
         const index = info.index;
@@ -374,7 +378,7 @@ class HairPage {
         for (const direction of [UE.EUINavigation.Left, UE.EUINavigation.Right, UE.EUINavigation.Up, UE.EUINavigation.Down]) button.SetNavigationRuleBase(direction, UE.EUINavigationRule.Stop);
     }
     open() {
-        this.active = false; this.pending = { ...this.settings.choice }; this.build(); this.active = true;
+        this.active = false; this.pendingKind = null; this.previewedComponent = null; this.pending = { ...this.settings.choice }; this.build(); this.active = true;
         this.navigationTraceBudget = 4;
         this.positioned = false;
         this.root.SetVisibility(UE.ESlateVisibility.SelfHitTestInvisible);
@@ -408,6 +412,7 @@ class HairPage {
     previewCard(info, scroll) {
         // Each hover/focus previews one field against the applied appearance.
         // Passing through another section must not queue that section's choice.
+        this.pendingKind = info.kind;
         this.pending = this.settings.withChoiceField(info.kind, info.item.id);
         this.refreshAction();
         if (scroll) this.scroll.ScrollWidgetIntoView(info.button, true, UE.EDescendantScrollDestination.IntoView, 16);
@@ -415,8 +420,11 @@ class HairPage {
         this.scope.later(() => { if (this.active && serial === this.serial) this.preview(); }, 90);
     }
     preview() {
-        const component = this.view.getPreviewDollComponent();
-        if (R.valid(component)) this.appearance.previewChoice(component, this.pending);
+        const component = this.appearance.notePreviewView(this.view);
+        if (R.valid(component)) {
+            this.previewedComponent = component;
+            this.appearance.previewChoice(component, this.pending, this.pendingKind === "hat");
+        }
     }
     differs() { return Object.keys(C.defaults).some(key => this.pending[key] !== this.settings.choice[key]); }
     currentCard() { return this.selectedInfo || cardInfo.get(R.valid(this.group) ? this.group.GetSelectedButtonBase() : undefined); }
@@ -442,12 +450,13 @@ class HairPage {
             detail.SetRenderOpacity(1); detail.SetVisibility(lines.length ? UE.ESlateVisibility.HitTestInvisible : UE.ESlateVisibility.Collapsed);
         }
         this.scope.safe("draw swatch focus", () => this.updateSwatchFocus(info));
-        if ((this.differs() || resetSelected || info && info.item.id !== this.settings.choice[info.kind]) && NativeUI.canOpenSystemUI(this.view)) this.view.BindKeyDelegate.Broadcast(NativeUI.MakePBZInputDataTableHandle("WeaponConfirm"), true, this.confirmDelegate, UE.EInputEvent.IE_Pressed);
+        if ((this.differs() || resetSelected || info && info.item.id !== this.settings.choice[info.kind] ||
+            info?.kind === "hat" && committedAtelierHat() !== undefined) && NativeUI.canOpenSystemUI(this.view)) this.view.BindKeyDelegate.Broadcast(NativeUI.MakePBZInputDataTableHandle("WeaponConfirm"), true, this.confirmDelegate, UE.EInputEvent.IE_Pressed);
     }
     followOutfit() {
         if (!this.active) return;
         if (!NativeUI.canOpenSystemUI(this.view)) { this.view.pushTips("UI_Character_68"); return; }
-        this.pending = { ...C.defaults }; this.confirm(true); this.preview(); this.group.DeselectAll(); this.selectedInfo = null; this.hoverInfo = null; this.refreshAction();
+        this.pendingKind = null; this.pending = { ...C.defaults }; this.confirm(true); this.preview(); this.group.DeselectAll(); this.selectedInfo = null; this.hoverInfo = null; this.refreshAction();
     }
     openFollowAction() {
         const handle = new UE.DataTableRowHandle(); handle.DataTable = UE.DataTable.Load(C.paths.actionTable); handle.RowName = C.FOLLOW;
@@ -501,19 +510,24 @@ class HairPage {
         if (!this.active || !info || info.page !== this) return;
         if (!NativeUI.canOpenSystemUI(this.view)) { this.view.pushTips("UI_Character_68"); return; }
         const value = this.canResetSelected() ? (info.kind === "hat" ? "none" : C.defaults[info.kind]) : info.item.id;
+        this.pendingKind = info.kind;
         this.pending = this.settings.withChoiceField(info.kind, value);
-        this.confirm();
+        this.confirm(false, info.kind === "hat");
     }
-    confirm(resetColors = false) {
+    confirm(resetColors = false, hatAction = false) {
         if (!this.active) return;
         const changed = this.differs() || resetColors && Object.values(this.settings.hairColors).some(color => color !== C.defaults.color);
-        const hatAction = resetColors || this.currentCard()?.kind === "hat";
-        if (!changed && !hatAction) return;
         if (!NativeUI.canOpenSystemUI(this.view)) { this.view.pushTips("UI_Character_68"); return; }
-        if (hatAction) {
+        let transferred = false;
+        if (hatAction || resetColors) {
             const player = UE.PBZAppearanceComponent.GetPBZAppearanceComponent(R.gi());
-            if (R.valid(player)) compat.claimStudioHat(player.GetEffectiveOutfit());
+            if (R.valid(player)) {
+                const outfit = player.GetEffectiveOutfit();
+                transferred = resetColors ? compat.claimAtelierHat(outfit) : compat.claimStudioHat(outfit);
+            }
         }
+        if (!changed && !transferred) return;
+        this.pendingKind = null;
         const saved = this.appearance.commit(this.pending, resetColors); this.preview(); this.markEquipped(); this.refreshAction();
         this.view.playOutfitSound(this.view.OutfitChangeSound);
         this.notice = saved ? null : "saveFailed"; this.refreshAction();
@@ -565,11 +579,15 @@ class HairPage {
     tick() {
         if (!this.active) return;
         this.scope.safe("position hair grid", () => this.position());
+        this.scope.safe("rebind hair preview", () => {
+            const component = this.view.getPreviewDollComponent();
+            if (R.valid(component) && (this.previewedComponent !== component || !this.appearance.preview.has(component))) this.preview();
+        });
     }
     leave() {
         if (!this.active) return;
         this.active = false; ++this.serial;
-        this.hoverInfo = null; this.scope.safe("restore native appearance information", () => this.closeInfo());
+        this.pendingKind = null; this.previewedComponent = null; this.hoverInfo = null; this.scope.safe("restore native appearance information", () => this.closeInfo());
         this.scope.safe("remove follow outfit action", () => this.closeFollowAction());
         this.scope.safe("unbind hair action", () => this.view.RemoveKeyDelegate.Broadcast("WeaponConfirm"));
         const component = this.scope.safe("read preview for cleanup", () => this.view.getPreviewDollComponent());

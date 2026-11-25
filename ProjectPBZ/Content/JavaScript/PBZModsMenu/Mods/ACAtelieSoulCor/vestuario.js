@@ -117,6 +117,7 @@ exports.criar = function criar(UE, valido, avisar, agora = Date.now) {
             r.proxima = agora() + 2500;
             r.tentativas++;
             comp.ReplaceBody(dados.id, true, false);
+            compat.notifyBodyChanged(comp);
             visual = listar(ator, comp, dados);
         }
         r.pronto = completo();
@@ -218,6 +219,8 @@ exports.criar = function criar(UE, valido, avisar, agora = Date.now) {
         ativos.delete(comp);
         if (!r || !valido(comp)) return;
         soltarPelo(r);
+        // A forced-default cinematic is controlled by the game, not the wardrobe.
+        if (typeof comp.ShouldForceDefaultAppearance === "function" && comp.ShouldForceDefaultAppearance()) return;
         const efetiva = roupaExibida || comp.GetEffectiveOutfit();
         let corpoDestino = roupas.linhas.Changhong, chapeuDestino = "Hat_Fengxue";
         if (!igual(efetiva, cartao)) {
@@ -234,10 +237,11 @@ exports.criar = function criar(UE, valido, avisar, agora = Date.now) {
                 !igual(comp.EquipBodyItem, roupas.linhas[r.escolha]) && !igual(comp.EquipBodyItem, roupas.linhas.Changhong);
             if (!jaEquipouOutra && atual && valido(comp.BodyComponent) && atual.malhas.has(caminho(lerMalha(comp.BodyComponent)))) {
                 comp.ReplaceBody(corpoDestino, true, false);
+                compat.notifyBodyChanged(comp);
             }
         }
     }
-    return { vestir, chapelar, cederChapeu, fim(vistos, destinos = new Map()) {
+    return { vestir, chapelar, cederChapeu, temChapeu: comp => !!ativos.get(comp)?.chapeu, fim(vistos, destinos = new Map()) {
         for (const comp of ativos.keys()) if (!vistos.has(comp)) {
             try { esquecer(comp, destinos.get(comp)); } catch (erro) { avisar("Restauração do traje: " + erro); }
         }

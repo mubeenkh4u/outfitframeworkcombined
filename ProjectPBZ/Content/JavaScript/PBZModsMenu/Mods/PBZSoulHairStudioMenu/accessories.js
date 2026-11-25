@@ -309,7 +309,7 @@ class Accessories {
         }
         group.collisions = next;
     }
-    apply(component, choice, row, visibleHead, outfit, outfitBand, independentHat) {
+    apply(component, choice, row, visibleHead, outfit, outfitBand, independentHat, actualHatOff) {
         if (!this.scope.active) return;
         const head = R.head(component), mesh = R.valid(head) ? head.GetSkeletalMeshAsset() : null;
         if (!R.valid(head) || !R.valid(mesh) || !R.valid(visibleHead)) return;
@@ -340,7 +340,7 @@ class Accessories {
         // A visible hat does not universally hide native hair. Default/YaYu
         // retain a native under-hat cloth row, which the extra hair must follow.
         const baseVisible = head.IsVisible() && !head.bHiddenInGame && !component.GetOwner().bHidden;
-        const hatHidden = component.IsHatHiddenForOutfit(outfit);
+        const hatHidden = actualHatOff === undefined ? component.IsHatHiddenForOutfit(outfit) : actualHatOff;
         const hairAllowed = independentHat || hatHidden || component.GetEffectiveHeadClothData(row).Num() > 0;
         for (const group of [r.hair, r.mask]) if (group) {
             // Masks are an independent selection, not native under-hat hair.

@@ -524,7 +524,8 @@ class Eyes {
 exports.Faces = Faces; exports.Eyes = Eyes;
 class Appearance {
     constructor(scope, settings) {
-        this.scope = scope; this.settings = settings; this.records = new Map(); this.preview = new Map(); this.outfitOverrides = new WeakMap(); this.dyes = new Dyes(scope); this.scanAt = 0;
+        this.scope = scope; this.settings = settings; this.records = new Map(); this.preview = new Map(); this.previewHatIntent = new WeakSet(); this.outfitOverrides = new WeakMap();
+        this.previewViews = new Map(); this.previewOwners = new WeakMap(); this.retiredPreviews = new WeakSet(); this.dyes = new Dyes(scope); this.scanAt = 0;
         this.faces = new Faces(scope); this.eyes = new Eyes(scope); this.hairAssets = new Map(); this.accessories = new Accessories(scope);
         this.componentClass = R.loadClass(C.paths.appearanceComponent);
         this.sequenceClass = R.loadClass("/HuaShira/Animation/Seqs/ActorForSeqs/BP_Seq_Hun.BP_Seq_Hun_C");
@@ -567,6 +568,43 @@ class Appearance {
     releaseBindings(component, record) {
         if (R.valid(component)) for (const [name, binding] of record.bindings) if (component[name] === binding.applied) component[name] = binding.before && !R.valid(binding.before) ? null : binding.before;
         record.bindings.clear();
+    }
+    // The native wardrobe reuses preview dolls; retain the displayed outfit only
+    // for its current view and avoid writes during camera/dissolve transitions.
+    notePreviewView(view) {
+        if (!R.valid(view) || !view.IsVisible() || view.inputBarSuspended === true) {
+            this.clearPreviewView(view); return null;
+        }
+        const component = view.getPreviewDollComponent();
+        if (!R.valid(component)) { this.clearPreviewView(view); return null; }
+        if (this.previewViews.get(view) !== component) this.clearPreviewView(view);
+        const previous = this.previewOwners.get(component);
+        if (previous && previous !== view) this.clearPreviewView(previous);
+        this.previewViews.set(view, component);
+        this.previewOwners.set(component, view);
+        this.retiredPreviews.delete(component);
+        if (!this.previewBusy(component)) this.outfitOverrides.set(component, String(view.getDisplayedPreviewOutfitID()));
+        return component;
+    }
+    previewBusy(component) {
+        const view = this.previewOwners.get(component);
+        if (!view) return false;
+        if (!R.valid(view) || view.inputBarSuspended === true || !view.IsVisible() ||
+            view.previewPhase != null && view.previewPhase !== 0) return true;
+        const mode = view.getPreviewGameMode(), owner = component.GetOwner();
+        if (!R.valid(mode) || !R.valid(owner) || owner.bHidden || mode.getActivePreviewDoll() !== owner) return true;
+        const outfit = view.getDisplayedPreviewOutfitID();
+        return !outfit || String(outfit).toLowerCase() === "none";
+    }
+    clearPreviewView(view) {
+        const component = this.previewViews.get(view);
+        this.previewViews.delete(view);
+        if (!component || this.previewOwners.get(component) !== view) return;
+        this.previewOwners.delete(component);
+        this.outfitOverrides.delete(component);
+        this.preview.delete(component);
+        this.previewHatIntent.delete(component);
+        this.retiredPreviews.add(component);
     }
     nativeRow(component) {
         const outfit = this.outfitOverrides.get(component) || component.GetEffectiveOutfit();
@@ -721,6 +759,7 @@ class Appearance {
         record.previewSync = false;
     }
     apply(component) {
+        if (!R.valid(component) || this.retiredPreviews.has(component) || this.previewBusy(component)) return;
         const record = this.record(component);
         if (!record || !this.scope.active) return;
         if (component.ShouldForceDefaultAppearance()) {
@@ -746,14 +785,20 @@ class Appearance {
         const row = UE.PBZAppearanceComponent.GetAppearanceStruct(desired);
         if (row.AppearanceType !== UE.EAppearanceType.Hairstyle || !UE.KismetSystemLibrary.IsValidSoftObjectReference(row.HeadAsset)) throw new Error("Native hairstyle row is invalid: " + desired);
         const ownsFace = this.faces.records.has(component);
-        const manageNative = !extraHair && (nativeOverride || leavingExtraHair || record.modified || choice.hat === "none" && !!record.hatOverride);
-        const hatOff = !extraHair && Hats.isOff(component, native.outfit);
+        const atelierOwnsHat = compat.atelierOwnsHat(native.outfit, component);
+        const actualHatOff = Hats.isOff(component, native.outfit);
+        const atelierHatOff = atelierOwnsHat && actualHatOff;
+        const atelierHatChanged = record.atelierHatOff !== undefined && record.atelierHatOff !== atelierHatOff;
+        const manageNative = !extraHair && (nativeOverride || leavingExtraHair || record.modified ||
+            choice.hat === "none" && !!record.hatOverride || atelierHatOff || atelierHatChanged);
+        const hatOff = !extraHair && actualHatOff;
         const cloth = this.nativeCloth(component, row, hatOff && manageNative);
         const checkVisibility = !extraHair && (manageNative || ownsFace) && head.IsVisible() && !record.owner.bHidden && !head.bHiddenInGame && (hatOff || nativeOverride && !native.sequence && cloth.Num() > 0);
         const incomplete = (manageNative || choice.style !== "outfit" || (ownsFace && choice.face !== "outfit")) && !this.hairReady(component, row, checkVisibility, nativeOverride ? record : undefined, cloth);
         const rebuilt = record.head && (record.head !== head || record.headMesh !== headMesh);
-        const changed = extraHair && incomplete || leavingExtraHair || extraHair && rebuilt || (nativeOverride || record.modified) && (rebuilt || record.dirty || record.row !== desired || record.outfit !== native.outfit || record.observed !== observed || record.modified !== nativeOverride);
-        if (record.target !== desired) { record.target = desired; record.retryAt = 0; record.retryDelay = 120; }
+        const changed = extraHair && incomplete || leavingExtraHair || extraHair && rebuilt || (!extraHair && atelierHatChanged) || (nativeOverride || record.modified) && (rebuilt || record.dirty || record.row !== desired || record.outfit !== native.outfit || record.observed !== observed || record.modified !== nativeOverride);
+        if (record.target !== desired || atelierHatChanged) { record.target = desired; record.retryAt = 0; record.retryDelay = 120; }
+        record.atelierHatOff = atelierHatOff;
         if ((changed || incomplete) && Date.now() >= record.retryAt) {
             record.dirty = true; record.retryAt = Date.now() + record.retryDelay;
             record.retryDelay = Math.min(record.retryDelay * 2, 2000);
@@ -791,7 +836,7 @@ class Appearance {
         const visibleHead = this.faces.apply(component, path, choice.style !== "outfit" || choice.face !== "outfit", choice.face, fill);
         const glow = this.settings.glow;
         this.eyes.apply(visibleHead, choice.eye, choice.sclera, glow.enabled ? "on" : "off", glow.level);
-        this.accessories.apply(component, choice, row, visibleHead, native.outfit, String(native.row.OutfitMeshBandItem), !!record.hatOverride || compat.atelierOwnsHat(native.outfit, component) && Hats.isOff(component, native.outfit));
+        this.accessories.apply(component, choice, row, visibleHead, native.outfit, String(native.row.OutfitMeshBandItem), !!record.hatOverride, atelierOwnsHat ? actualHatOff : undefined);
         const groups = this.accessories.records.get(component);
         const nativeHair = groups?.hair ? null : this.nativeParts(component, row, cloth);
         const targets = groups?.hair ? groups.hair.parts : [...nativeHair.cards, ...nativeHair.strands].filter(Boolean);
@@ -811,8 +856,16 @@ class Appearance {
         }
         record.head = R.head(component); record.headMesh = record.head.GetSkeletalMeshAsset();
     }
-    previewChoice(component, choice) { if (!C.validChoice(choice)) throw new Error("Invalid preview choice"); this.preview.set(component, C.normalize(choice)); this.apply(component); }
-    clearPreview(component) { this.preview.delete(component); if (R.valid(component)) this.apply(component); }
+    previewChoice(component, choice, hatIntent = false) {
+        if (!C.validChoice(choice)) throw new Error("Invalid preview choice");
+        this.preview.set(component, C.normalize(choice));
+        if (hatIntent) this.previewHatIntent.add(component); else this.previewHatIntent.delete(component);
+        this.apply(component);
+    }
+    clearPreview(component) {
+        this.preview.delete(component); this.previewHatIntent.delete(component);
+        if (R.valid(component)) this.apply(component);
+    }
     commit(choice, resetColors = false) {
         if (!C.validChoice(choice)) throw new Error("Invalid committed choice");
         const saved = this.settings.save(choice, resetColors);
@@ -826,13 +879,14 @@ class Appearance {
         if (R.valid(player)) this.scope.safe("player hair", () => this.apply(player));
         if (Date.now() >= this.scanAt) {
             this.scanAt = Date.now() + 250;
+            for (const view of this.previewViews.keys()) if (!R.valid(view) || !view.IsVisible() || view.inputBarSuspended === true) this.clearPreviewView(view);
             const out = P.$ref();
             UE.GameplayStatics.GetAllActorsOfClass(R.gi(), this.sequenceClass, out);
             const a = P.$unref(out);
             for (let i = 0; i < a.Num(); i++) { const actor = a.Get(i); if (R.valid(actor)) this.record(actor.GetComponentByClass(UE.PBZAppearanceComponent.StaticClass())); }
         }
         for (const [component, r] of this.records) {
-            if (!R.valid(component) || !R.valid(r.owner)) { this.restoreHairDecals(r); this.accessories.restore(component); this.faces.restore(component); this.releaseBindings(component, r); this.records.delete(component); this.preview.delete(component); continue; }
+            if (!R.valid(component) || !R.valid(r.owner)) { this.restoreHairDecals(r); this.accessories.restore(component); this.faces.restore(component); this.releaseBindings(component, r); this.records.delete(component); this.preview.delete(component); this.previewHatIntent.delete(component); continue; }
             if (component !== player) this.scope.safe("preview/sequence hair", () => this.apply(component));
         }
         this.dyes.prune();
@@ -844,7 +898,7 @@ class Appearance {
         const face = this.faces.records.get(component);
         this.eyes.restore(face ? face.face : R.head(component)); this.faces.restore(component);
         const record = this.records.get(component), native = R.valid(component) ? this.nativeRow(component) : null;
-        if (record && native) Hats.apply(component, record, native, "outfit");
+        if (record && native) Hats.release(component, record, native);
         if (record) this.restoreHairDecals(record);
         if (record && (record.modified || extraHair) && native) {
             const row = C.rowFor(C.defaults, native.row, native.sequence);
@@ -853,13 +907,13 @@ class Appearance {
         }
     }
     stop() {
-        this.preview.clear();
+        this.preview.clear(); this.previewHatIntent = new WeakSet();
         for (const [component, record] of this.records) if (R.valid(component)) {
             for (const [name, fn] of record.delegates) this.scope.safe("remove appearance listener", () => component[name].Remove(fn));
             this.scope.safe("restore hairstyle", () => this.restore(component));
             this.scope.safe("restore cinematic mesh bindings", () => this.releaseBindings(component, record));
         }
-        this.accessories.stop(); this.eyes.stop(); this.faces.stop(); this.dyes.stop(); this.records.clear(); this.hairAssets.clear();
+        this.accessories.stop(); this.eyes.stop(); this.faces.stop(); this.dyes.stop(); this.records.clear(); this.hairAssets.clear(); this.previewViews.clear();
     }
 }
 exports.Appearance = Appearance;

@@ -50,6 +50,17 @@ function applyNative(component, record, native, selection) {
     const override = conical.has(selection) || selection === "none" && conical.has(original);
     if (!override && !record.hatOverride) return;
     const rigid = ownedSlot(component, "Hun Hat"), skin = ownedSlot(component, "Hun Hat01");
+    if (!override && record.hatOverride) {
+        // Never restore over a replacement already installed by the game or another mod.
+        const slots = [rigid, skin].filter(Boolean);
+        if (!slots.length) return;
+        const owned = record.hatOverride.mesh;
+        const current = slots.map(slot => slot.GetSkeletalMeshAsset() || null);
+        if (current.some(mesh => mesh && mesh !== owned)) {
+            record.hatOverride = null;
+            return;
+        }
+    }
     const id = override ? selection : original;
     const spec = record.hatOverride?.id === id ? record.hatOverride : resolveHat(id);
     const active = spec.skinned ? skin : rigid, other = spec.skinned ? rigid : skin;

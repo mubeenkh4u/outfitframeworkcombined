@@ -32,19 +32,26 @@ try {
     appearance = new (require("./appearance").Appearance)(scope, settings);
     const unregisterCompat = compat.registerStudio({
         previewHat(component) {
-            const pending = appearance.preview.get(component);
-            return !!pending && pending.hat !== settings.choice.hat;
+            return appearance.previewHatIntent.has(component);
         },
         previewPage() {
-            for (const [host, page] of hosts) if (R.valid(host) && page?.active && page.hairMode && R.valid(page.view) && page.view.IsVisible() && !page.view.inputBarSuspended) return page.view;
-            return null;
+            let active = null;
+            for (const [host, page] of hosts) if (R.valid(host) && page?.active && page.hairMode && R.valid(page.view) && page.view.IsVisible() && !page.view.inputBarSuspended) {
+                if (active && active !== page.view) return null;
+                active = page.view;
+            }
+            return active;
         },
         releaseHat(component) {
             if (!R.valid(component)) return;
             const record = appearance.records.get(component), native = appearance.nativeRow(component);
             if (record && native) Hats.release(component, record, native);
         },
-        hasHat(component) { return !!appearance.records.get(component)?.hatOverride; }
+        hasHat(component) { return !!appearance.records.get(component)?.hatOverride; },
+        bodyChanged(component) {
+            const record = appearance.records.get(component);
+            if (record) { record.dirty = true; record.retryAt = 0; }
+        }
     });
     scope.cleanup(unregisterCompat);
     function refreshLanguage() {
@@ -99,12 +106,14 @@ try {
     });
     patch(A, "FinishCurrentWidget", "UI_Widget_Appearance", C.paths.appearance, function (original, ...args) {
         const page = pageFor(this);
-        if (page) { page.leave(); page.hairMode = false; }
+        if (page) { scope.safe("leave hair page", () => page.leave()); page.hairMode = false; }
+        appearance.clearPreviewView(this);
         return original.apply(this, args);
     });
     patch(A, "Destruct", "UI_Widget_Appearance", C.paths.appearance, function (original, ...args) {
         const page = U.pageByView.get(this);
         if (page) { scope.safe("destroy hair page", () => page.stop()); hosts.delete(page.host); }
+        appearance.clearPreviewView(this);
         return original.apply(this, args);
     });
     for (const name of ["createSlots", "updateUnifiedText", "refreshAllSlots", "refreshHatInputBar", "refreshReplaceOutfitInputBar"]) patch(A, name, "UI_Widget_Appearance", C.paths.appearance, function (original, ...args) {
@@ -116,10 +125,8 @@ try {
     patch(A, "Tick", "UI_Widget_Appearance", C.paths.appearance, function (original, ...args) {
         const result = original.apply(this, args);
         scope.safe("hair page frame", () => {
-            const component = this.getPreviewDollComponent();
+            const component = appearance.notePreviewView(this);
             if (R.valid(component)) {
-                const outfit = this.getDisplayedPreviewOutfitID();
-                if (outfit) appearance.outfitOverrides.set(component, String(outfit));
                 appearance.record(component);
                 appearance.finishPreview(this, component);
             }
