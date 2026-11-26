@@ -1,0 +1,74 @@
+name: Build Mod Release v0.2.0
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/build-release.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pbz-release-v0.2.0
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      TAG: v0.2.0
+      PACKAGE: PBZ-OutfitFrameworkCombined-v0.2.0.zip
+    steps:
+      - name: Check out the source
+        uses: actions/checkout@v5
+        with:
+          lfs: true
+          persist-credentials: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
+      - name: Download and verify Git LFS objects
+        run: |
+          git lfs version
+          git lfs pull
+          git lfs fsck
+          node tools/verify.cjs
+
+      - name: Build installation ZIP
+        run: |
+          mkdir -p dist
+          zip -q -r -1 "dist/$PACKAGE" ProjectPBZ README.md
+          unzip -tq "dist/$PACKAGE"
+          (cd dist && sha256sum "$PACKAGE" > "$PACKAGE.sha256")
+          {
+            echo '### Verified installation package'
+            echo
+            echo '24 runtime JavaScript modules, 41 mock checks, 72 cooked assets.'
+            echo
+            echo 'ZIP integrity and source asset hashes checked.'
+            echo 'In-game compatibility is not verified.'
+            echo
+            cat "dist/$PACKAGE.sha256"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Create draft pre-release with verified ZIP
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::Release $TAG already exists; refusing to overwrite its assets."
+            exit 1
+          fi
+          gh release create "$TAG" "dist/$PACKAGE" "dist/$PACKAGE.sha256" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "PBZ Outfit Framework Combined v0.2.0" \
+            --draft --prerelease \
+            --notes "Compatibility candidate. ZIP includes ProjectPBZ and installation instructions, all 24 complete cooked asset triplets, and both coordinated Mods Menu entries. No additional loader is bundled. Git LFS objects, JavaScript syntax, mock compatibility checks and archive integrity are validated by CI. In-game compatibility remains unverified. Review upstream authors' distribution permissions before publishing."
