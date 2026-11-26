@@ -1,11 +1,19 @@
-# PBZ Outfit Framework Combined v0.2.0 — complete-asset compatibility candidate
+# PBZ Outfit Framework Combined v0.2.1 — menu compatibility hotfix
 
-A private combined installation of:
+A combined installation for personal testing of:
 - Soul's Appearance Studio v1.3.3 (Nexus 559, Szy1115)
 - Ateliê do Soul (Nexus 1463)
 - PBZ Outfit Framework (Nexus 903, Melina)
 
 Preserves the original upstream asset containers without repacking or modifying them. Includes the 22 Appearance Studio triplets plus the Atelier and Framework triplets (24 triplets, 72 cooked files). Studio assets are Git LFS objects and their pointers are not playable files.
+
+## v0.2.1 menu repair
+- One logical owner for the native Appearance widget: native Outfit/Atelier, Hair or Masks.
+- Native initialization, outfit catalog creation and framework refreshes are no longer suppressed while opening a Studio tab. A ready native preview session is reused for Hair/Masks switches.
+- Atelier detaches its native grid listeners before Studio takes ownership. In combined mode it no longer wraps the native refresh/finish methods per widget or forces a second Appearance re-entry. Native confirm/back behavior is restored when leaving Studio.
+- The Studio router guards recursive native tab selection, reconciles cached callbacks, retries missing dynamic tab registrations and restores the native grid if a custom overlay fails. It avoids hiding any ancestor of its own overlay. Missing decorative icons fall back to labels; a missing restore-action table has a fallback button.
+- 41 appearance checks and 33 menu lifecycle checks passed under mocks; actual game testing is still necessary. The original 72 cooked assets are unchanged. No engine fingerprint checks were bypassed.
+- If upgrading from v0.2.0, use the script-only ZIP and replace the two complete Mods Menu script folders; do not reinstall the cooked assets.
 
 ## Installation
 1. Back up saves and any existing mod files. Close the game.
@@ -23,9 +31,9 @@ Preserves the original upstream asset containers without repacking or modifying 
 - Both original script entrypoints are preserved for loader discovery, but share one compatibility coordinator. The duplicate PBZModLoader edition is deliberately omitted. Existing saved preferences are preserved; a new controller field defaults to Atelier.
 
 ## Verification and limitations
-- All 24 runtime JS modules passed syntax checks. The compatibility test suite passed 41 checks with mock UE objects, including hat transitions, preview isolation, shared palette and six body presets.
+- All 24 runtime JS modules passed syntax checks. The compatibility test suite passed 41 appearance checks and 33 menu checks with mock UE objects, including hat transitions, preview isolation, shared palette, tab re-entry, input ownership, and native refreshes.
 - tools/asset-manifest.json pins the exact Git blobs from the three source branches. tools/verify.cjs verifies all downloaded files against their Git blob/LFS SHA-256 and size, validates IoStore TOC magic, and rejects incomplete/extra cooked triplets.
-- Repository file layout and LFS pointer references are verified; actual LFS binary downloads must still be checked locally using the verifier. No Unreal/PuerTS runtime or visual testing was possible here. Third-party mods replacing the global appearance table or slot 8716 are not automatically merged. A confirmed complete standalone game-tested release requires testing in PBZ.
+- Repository asset references are unchanged. The CI build verifies actual LFS binary downloads using the verifier. No Unreal/PuerTS runtime or visual testing was possible here. Third-party mods replacing the global appearance table or slot 8716 are not automatically merged. A confirmed complete standalone game-tested release requires testing in PBZ.
 
 ## In-game acceptance test
 1. Check the custom Atelier outfit appears; equip it. Switch all six body presets and all hat choices, including no hat; check body/hat dyes.

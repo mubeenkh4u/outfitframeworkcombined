@@ -191,6 +191,8 @@ const unregisterCompat = compat.registerAtelier({
     },
     claimStudioHat: () => trocarControlador("Studio"),
     claimAtelierHat: () => trocarControlador("Atelie"),
+    suspendMenu: view => ui.suspenderMenu(view),
+    nativeInputRefreshed: view => ui.entradaNativaAtualizada(view),
     releaseHat(comp) {
         // Release the dye MID before releasing the mesh and fur material.
         if (!armario.temChapeu(comp)) return;

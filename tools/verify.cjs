@@ -3,6 +3,7 @@ const fs = require("node:fs"), path = require("node:path");
 const { createHash } = require("node:crypto");
 const { execFileSync } = require("node:child_process");
 const runTests = require("./compatibility-tests.cjs");
+const runMenuTests = require("./menu-tests.cjs");
 const manifest = require("./asset-manifest.json");
 const root = path.resolve(__dirname, "..");
 const mods = path.join(root, "ProjectPBZ", "Content", "JavaScript", "PBZModsMenu", "Mods");
@@ -36,7 +37,14 @@ async function main() {
         paleta: load(atelier, "paleta.js"),
         roupas: load(atelier, "roupas.js")
     });
-    console.log("Runtime JS parsed:", jsCount, "| mock checks passed:", checks.length);
+    const menus = runMenuTests({
+        bridge: load(studio, "combined-compat.js"),
+        studio: load(studio, "main.js"),
+        ui: load(studio, "ui.js"),
+        atelier: load(atelier, "guarda_roupa.js")
+    });
+    requireCheck(checks.length === 41 && menus.length === 33, "Unexpected compatibility test count");
+    console.log("Runtime JS parsed:", jsCount, "| appearance mock checks:", checks.length, "| menu lifecycle mock checks:", menus.length);
     requireCheck(!fs.existsSync(path.join(root, "ProjectPBZ", "PBZModLoader", "mods", "PBZSoulHairStudio")), "Duplicate Studio loader edition detected");
     requireCheck(manifest.assets.length === manifest.assetCount && manifest.assetCount === 72, "Incorrect asset count");
     const tree = new Map(git("ls-tree", "-r", "HEAD").trim().split(/\r?\n/).map(line => {

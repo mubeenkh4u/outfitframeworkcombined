@@ -1,6 +1,7 @@
 "use strict";
 
 const roupa = "PBZ_OutFit_ACAtelieSoul";
+const compat = require("PBZModsMenu/Mods/PBZSoulHairStudioMenu/combined-compat");
 const classePagina = "/Game/PBZContent/UI/UINew/System/Character/W_Appearance_V2.W_Appearance_V2_C";
 const classePersonagem = "/Game/PBZContent/UI/UINew/System/Character/WB_CharacterV5.WB_CharacterV5_C";
 const secoes = [
@@ -72,7 +73,7 @@ exports.iniciar = function iniciar({ UE, puerts, ler, escolher, opcoes, estadoUI
     }
 
     function naAparencia(pagina, dono = donoDaPagina(pagina)) {
-        return !dono || String(dono.TabList.GetSelectedTabId()).toLowerCase() === "appearance";
+        return !compat.studioOwnsMenu(pagina) && (!dono || String(dono.TabList.GetSelectedTabId()).toLowerCase() === "appearance");
     }
 
     function restaurarSelecao(pagina, id) {
@@ -125,7 +126,7 @@ exports.iniciar = function iniciar({ UE, puerts, ler, escolher, opcoes, estadoUI
             visita.estado = estado; visita.desde = tempo;
             visita.diagnostico = estado;
         }
-        if (estado !== "camera_no_jogador" && estado !== "estudio_sem_boneco") return;
+        if (!naAparencia(pagina, dono) || estado !== "camera_no_jogador" && estado !== "estudio_sem_boneco") return;
         if (visita.reabriu || tempo - visita.desde < (estado === "estudio_sem_boneco" || visita.direta ? 15000 : 3000)) return;
 
         // O fluxo nativo posiciona a câmera e prepara o boneco. Nunca force visibilidade durante a dissolução.
@@ -135,7 +136,10 @@ exports.iniciar = function iniciar({ UE, puerts, ler, escolher, opcoes, estadoUI
             pagina.enterStudio();
             return;
         }
-        // Reentrada usada pelo Appearance Studio. Recriar a lista enquanto se edita descartaria o foco e a navegação.
+        // Only the shared Studio router may re-enter the native view in combined mode.
+        // Keep the original fallback for Atelier-only installations.
+        if (compat.studioRegistered()) { visita.diagnostico = "aguardando_previa_nativa"; return; }
+        // Recriar a lista enquanto se edita descartaria o foco e a navegação.
         if (edicao || !visivel(pagina.W_SystemPanel) || typeof pagina.FinishCurrentWidget !== "function" ||
             typeof dono.onTabSelected !== "function") return;
         const selecionado = cartaoAtual(pagina)?.AccessoryOutFitID;
@@ -407,7 +411,7 @@ exports.iniciar = function iniciar({ UE, puerts, ler, escolher, opcoes, estadoUI
             }
             // O Hair Studio reutiliza a mesma página ao trocar de aba. Devolve a grade antes da transição.
             const finalizar = pagina.FinishCurrentWidget;
-            if (typeof finalizar === "function") {
+            if (!compat.studioRegistered() && typeof finalizar === "function") {
                 aba.descFinalizar = Object.getOwnPropertyDescriptor(pagina, "FinishCurrentWidget");
                 aba.finalizar = function (...args) {
                     if (edicao === aba) fechar(false);
@@ -430,6 +434,7 @@ exports.iniciar = function iniciar({ UE, puerts, ler, escolher, opcoes, estadoUI
         const equipar = api.mixin.confirmOutfit, back = api.mixin.BackInput;
         if (typeof equipar !== "function" || typeof back !== "function") throw new Error("Ações de Aparência indisponíveis.");
         function confirm(anterior, id, ...args) {
+            if (compat.studioOwnsMenu(this)) return;
             if (equipando === this) return anterior.call(this, id, ...args);
             if (!encerrado && edicao?.pagina === this && aindaEditando(edicao)) {
                 const item = edicao.linhas.find(x => x.botao.HasUserFocus(edicao.controle) ||
@@ -447,6 +452,7 @@ exports.iniciar = function iniciar({ UE, puerts, ler, escolher, opcoes, estadoUI
             return anterior.call(this, id, ...args);
         }
         function recuar(anterior, ...args) {
+            if (compat.studioOwnsMenu(this)) return anterior.apply(this, args);
             if (!encerrado && edicao?.pagina === this && aindaEditando(edicao)) {
                 const aba = edicao;
                 enfileirar(aba, () => voltar(aba));
@@ -488,16 +494,18 @@ exports.iniciar = function iniciar({ UE, puerts, ler, escolher, opcoes, estadoUI
 
     function rearmar(atual) {
         const pagina = atual.pagina, cartao = cartaoAtual(pagina);
-        if (observado !== atual || encerrado || !valido(cartao) || !nossa(cartao.AccessoryOutFitID) ||
+        if (atual.rearmando || compat.studioOwnsMenu(pagina) || observado !== atual || encerrado || !valido(cartao) || !nossa(cartao.AccessoryOutFitID) ||
             !vestida({ pagina }) || atual.confirmavel === cartao ||
             !(edicao?.pagina === pagina && aindaEditando(edicao) || podeAbrir(pagina, cartao)) ||
             typeof pagina.ensureReplaceOutfitLambda !== "function") return;
         // O jogo retira "Trocar" da barra quando a roupa já está equipada.
         pagina.ensureReplaceOutfitLambda();
         if (pagina.replaceOutfitLambda) {
-            pagina.BindKeyDelegate.Broadcast(entrada.MakePBZInputDataTableHandle("WeaponConfirm"), true,
-                pagina.replaceOutfitLambda, UE.EInputEvent.IE_Pressed);
-            atual.confirmavel = cartao;
+            atual.confirmavel = cartao; atual.rearmando = true;
+            try { pagina.BindKeyDelegate.Broadcast(entrada.MakePBZInputDataTableHandle("WeaponConfirm"), true,
+                pagina.replaceOutfitLambda, UE.EInputEvent.IE_Pressed); }
+            catch (erro) { atual.confirmavel = null; throw erro; }
+            finally { atual.rearmando = false; }
         }
     }
 
@@ -512,7 +520,7 @@ exports.iniciar = function iniciar({ UE, puerts, ler, escolher, opcoes, estadoUI
 
     function observar(pagina) {
         const grupo = pagina?.W_SystemPanel?.ButtonGroup;
-        if (observado?.pagina === pagina && observado?.grupo === grupo) return;
+        if (observado?.pagina === pagina && observado?.grupo === grupo && observado?.viaStudio === compat.studioRegistered()) return;
         const anterior = observado;
         observado = undefined;
         if (anterior && valido(anterior.grupo)) {
@@ -524,7 +532,8 @@ exports.iniciar = function iniciar({ UE, puerts, ler, escolher, opcoes, estadoUI
             else Reflect.deleteProperty(anterior.pagina, "refreshReplaceOutfitInputBar");
         }
         if (!valido(grupo) || !grupo.OnButtonBaseClicked) return;
-        const atual = { pagina, grupo };
+        if (compat.studioOwnsMenu(pagina)) return;
+        const atual = { pagina, grupo, viaStudio: compat.studioRegistered() };
         atual.clique = botao => {
             try {
                 atual.pendente = null;
@@ -545,7 +554,7 @@ exports.iniciar = function iniciar({ UE, puerts, ler, escolher, opcoes, estadoUI
         grupo.OnSelectedButtonBaseChanged?.Add(atual.selecao);
         observado = atual;
         const refresh = pagina.refreshReplaceOutfitInputBar;
-        if (typeof refresh === "function") {
+        if (!atual.viaStudio && typeof refresh === "function") {
             atual.descRefresh = Object.getOwnPropertyDescriptor(pagina, "refreshReplaceOutfitInputBar");
             atual.refresh = function (...args) {
                 const retorno = refresh.apply(this, args);
@@ -624,7 +633,26 @@ exports.iniciar = function iniciar({ UE, puerts, ler, escolher, opcoes, estadoUI
         return null;
     }
 
-    return { atualizar, paginaAtiva, parar() {
+    function suspenderMenu(pagina) {
+        if (edicao?.pagina === pagina) fechar(false);
+        if (observado?.pagina === pagina) {
+            const anterior = observado;
+            // Only remove our own card callbacks and the instance wrapper.
+            // Studio installs its own confirm action after this synchronous handover.
+            observar(null);
+            anterior.pendente = null;
+        }
+        if (ultimaPagina === pagina) ultimaPagina = null;
+        visita = null; ultimaEntrada = null;
+    }
+    function entradaNativaAtualizada(pagina) {
+        if (encerrado || compat.studioOwnsMenu(pagina) || observado?.pagina !== pagina) return;
+        const atual = observado;
+        if (atual.rearmando) return;
+        atual.confirmavel = null;
+        try { rearmar(atual); } catch (erro) { avisar(erro); }
+    }
+    return { atualizar, paginaAtiva, suspenderMenu, entradaNativaAtualizada, parar() {
         encerrado = true;
         fechar(true);
         if (observado?.confirmavel && paginaLocal(observado.pagina) && observado.confirmavel === cartaoAtual(observado.pagina)) {

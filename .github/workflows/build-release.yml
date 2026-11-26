@@ -1,4 +1,4 @@
-name: Build Mod Release v0.2.0
+name: Build Mod Release v0.2.1
 
 on:
   workflow_dispatch:
@@ -11,7 +11,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: pbz-release-v0.2.0
+  group: pbz-release-v0.2.1
   cancel-in-progress: false
 
 jobs:
@@ -20,8 +20,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
-      TAG: v0.2.0
-      PACKAGE: PBZ-OutfitFrameworkCombined-v0.2.0.zip
+      TAG: v0.2.1
+      PACKAGE: PBZ-OutfitFrameworkCombined-v0.2.1.zip
+      PATCH_PACKAGE: PBZ-OutfitFrameworkCombined-v0.2.1-menu-patch.zip
     steps:
       - name: Check out the source
         uses: actions/checkout@v5
@@ -46,11 +47,13 @@ jobs:
           mkdir -p dist
           zip -q -r -1 "dist/$PACKAGE" ProjectPBZ README.md
           unzip -tq "dist/$PACKAGE"
-          (cd dist && sha256sum "$PACKAGE" > "$PACKAGE.sha256")
+          zip -q -r -1 "dist/$PATCH_PACKAGE" ProjectPBZ/Content/JavaScript UPGRADE-v0.2.1.md
+          unzip -tq "dist/$PATCH_PACKAGE"
+          (cd dist && sha256sum "$PACKAGE" > "$PACKAGE.sha256" && sha256sum "$PATCH_PACKAGE" > "$PATCH_PACKAGE.sha256")
           {
             echo '### Verified installation package'
             echo
-            echo '24 runtime JavaScript modules, 41 mock checks, 72 cooked assets.'
+            echo '24 runtime JavaScript modules, 41 appearance checks, 33 menu lifecycle checks, 72 cooked assets.'
             echo
             echo 'ZIP integrity and source asset hashes checked.'
             echo 'In-game compatibility is not verified.'
@@ -66,9 +69,9 @@ jobs:
             echo "::error::Release $TAG already exists; refusing to overwrite its assets."
             exit 1
           fi
-          gh release create "$TAG" "dist/$PACKAGE" "dist/$PACKAGE.sha256" \
+          gh release create "$TAG" "dist/$PACKAGE" "dist/$PACKAGE.sha256" "dist/$PATCH_PACKAGE" "dist/$PATCH_PACKAGE.sha256" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "PBZ Outfit Framework Combined v0.2.0" \
+            --title "PBZ Outfit Framework Combined v0.2.1" \
             --draft --prerelease \
-            --notes "Compatibility candidate. ZIP includes ProjectPBZ and installation instructions, all 24 complete cooked asset triplets, and both coordinated Mods Menu entries. No additional loader is bundled. Git LFS objects, JavaScript syntax, mock compatibility checks and archive integrity are validated by CI. In-game compatibility remains unverified. Review upstream authors' distribution permissions before publishing."
+            --notes "Menu compatibility candidate. Full ZIP includes all 24 original cooked asset triplets. The smaller menu-patch ZIP replaces both Mods Menu script folders for v0.2.0 users. Native catalog initialization, tab selection, overlay visibility and Atelier input ownership are coordinated. CI validates asset hashes, 74 simulated checks and ZIP integrity. In-game compatibility remains unverified. Review upstream authors' distribution permissions before publishing."

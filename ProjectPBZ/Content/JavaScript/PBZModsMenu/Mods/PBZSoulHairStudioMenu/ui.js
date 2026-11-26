@@ -97,14 +97,21 @@ function committedAtelierHat() {
 function isEquipped(info) {
     const choice = info.page.settings.choice[info.kind];
     if (info.kind !== "hat") return info.item.id === choice;
-    const player = UE.PBZAppearanceComponent.GetPBZAppearanceComponent(R.gi());
+    let player;
+    try { player = UE.PBZAppearanceComponent.GetPBZAppearanceComponent(R.gi()); }
+    catch (error) { info.page.scope.report("read equipped hat", error); }
     if (!R.valid(player)) return choice !== "outfit" && info.item.id === choice;
-    const outfit = player.GetEffectiveOutfit();
-    const atelierHat = compat.atelierHatRow(outfit, player);
-    if (atelierHat !== undefined) return !player.IsHatHiddenForOutfit(outfit) && atelierHat === info.item.id;
-    if (choice !== "outfit") return info.item.id === choice;
-    if (!outfit || String(outfit).toLowerCase() === "none" || player.IsHatHiddenForOutfit(outfit)) return false;
-    return String(UE.PBZAppearanceComponent.GetAppearanceStruct(outfit).OutfitHatItem) === info.item.id;
+    try {
+        const outfit = player.GetEffectiveOutfit();
+        const atelierHat = compat.atelierHatRow(outfit, player);
+        if (atelierHat !== undefined) return !player.IsHatHiddenForOutfit(outfit) && atelierHat === info.item.id;
+        if (choice !== "outfit") return info.item.id === choice;
+        if (!outfit || String(outfit).toLowerCase() === "none" || player.IsHatHiddenForOutfit(outfit)) return false;
+        return String(UE.PBZAppearanceComponent.GetAppearanceStruct(outfit).OutfitHatItem) === info.item.id;
+    } catch (error) {
+        info.page.scope.report("read native hat marker", error);
+        return choice !== "outfit" && info.item.id === choice;
+    }
 }
 exports.paintCard = function (button, info) {
     image(button, info);
@@ -143,9 +150,16 @@ class HairPage {
     buildContent() {
         if (R.fingerprint(NativeUI.setNavRuleSafe) !== "e4d5db61") throw new Error("Native appearance navigation helper changed");
         if (R.fingerprint(NativeGrid.clearGridSelectionTransition) !== "ffeabac1") throw new Error("Native grid selection cleanup helper changed");
-        const view = this.view, parent = view.W_SystemPanel.GetParent();
-        if (!R.valid(parent) || !parent.IsA(UE.Overlay.StaticClass())) throw new Error("Native appearance layout changed");
-        this.root = R.make(UE.SizeBox, view); this.root.SetWidthOverride(472); this.root.SetHeightOverride(510);
+        const view = this.view;
+        // The framework may wrap the native outfit list in another panel.
+        // Mount at the closest valid overlay, never inside the hidden grid.
+        let parent = view.W_SystemPanel.GetParent();
+        const visited = new Set();
+        while (R.valid(parent) && !parent.IsA(UE.Overlay.StaticClass()) && !visited.has(parent)) {
+            visited.add(parent); parent = parent.GetParent();
+        }
+        if (!R.valid(parent) || !parent.IsA(UE.Overlay.StaticClass())) throw new Error("Native appearance layout has no usable overlay");
+        this.root = R.make(UE.SizeBox, view); this.root.SetVisibility(UE.ESlateVisibility.Collapsed); this.root.SetWidthOverride(472); this.root.SetHeightOverride(510);
         const slot = parent.AddChildToOverlay(this.root);
         this.parentOverlay = parent; this.overlaySlot = slot; this.positioned = false;
         slot.SetHorizontalAlignment(UE.EHorizontalAlignment.HAlign_Left); slot.SetVerticalAlignment(UE.EVerticalAlignment.VAlign_Top);
@@ -209,8 +223,26 @@ class HairPage {
                 button.gridSelectionTransitionInPanel = true;
                 for (const name of ["LockImg", "RedPoint"]) if (R.valid(button[name])) button[name].SetVisibility(UE.ESlateVisibility.Collapsed);
                 if (kind === "style" || kind === "face" || kind === "mask" || kind === "hat") {
-                    const path = C.iconPath(kind, item.id); info.texture = UE.Texture2D.Load(path);
-                    if (!R.valid(info.texture) || R.path(info.texture).toLowerCase() !== path.toLowerCase()) throw new Error("Cosmetic icon unavailable: " + path);
+                    const path = C.iconPath(kind, item.id);
+                    try {
+                        info.texture = UE.Texture2D.Load(path);
+                        if (!R.valid(info.texture) || R.path(info.texture).toLowerCase() !== path.toLowerCase())
+                            throw new Error("Cosmetic icon unavailable: " + path);
+                    } catch (error) {
+                        info.texture = null;
+                        this.scope.report("optional cosmetic icon " + item.id, error);
+                        // An unavailable icon must not invalidate the entire menu.
+                        // Use a readable label; the same selection ID remains usable.
+                        const fallback = R.make(UE.Overlay, view);
+                        box.ClearChildren();
+                        fallback.AddChildToOverlay(button);
+                        const label = makeText(view, C.cardName(item, this.settings.language) || item.id, 12, this.settings.language);
+                        const textSlot = fallback.AddChildToOverlay(label);
+                        textSlot.SetHorizontalAlignment(UE.EHorizontalAlignment.HAlign_Center);
+                        textSlot.SetVerticalAlignment(UE.EVerticalAlignment.VAlign_Center);
+                        box.AddChild(fallback);
+                        info.fallbackLabel = label;
+                    }
                 }
                 image(button, info); this.group.AddWidget(button);
                 const cell = grid.AddChildToUniformGrid(box, row, col);
@@ -247,7 +279,7 @@ class HairPage {
             info.onUnhovered = () => this.pointerLeave(info);
             info.button.OnButtonBaseUnhovered.Add(info.onUnhovered);
         }
-        this.languageRoot = R.make(UE.SizeBox, view); this.languageRoot.SetWidthOverride(280); this.languageRoot.SetHeightOverride(44);
+        this.languageRoot = R.make(UE.SizeBox, view); this.languageRoot.SetVisibility(UE.ESlateVisibility.Collapsed); this.languageRoot.SetWidthOverride(280); this.languageRoot.SetHeightOverride(44);
         const languageSlot = parent.AddChildToOverlay(this.languageRoot);
         languageSlot.SetHorizontalAlignment(UE.EHorizontalAlignment.HAlign_Left); languageSlot.SetVerticalAlignment(UE.EVerticalAlignment.VAlign_Bottom);
         languageSlot.SetPadding(R.margin(95, 0, 0, 18));
@@ -377,18 +409,33 @@ class HairPage {
     unbindNavigation(button) {
         for (const direction of [UE.EUINavigation.Left, UE.EUINavigation.Right, UE.EUINavigation.Up, UE.EUINavigation.Down]) button.SetNavigationRuleBase(direction, UE.EUINavigationRule.Stop);
     }
+    hideNativeContent() {
+        // Never hide an ancestor of the overlay: the native outfit panel
+        // and custom grid can share ScaleBox/Overlay parents.
+        if (!this.active || !R.valid(this.root)) return;
+        const ancestors = new Set();
+        for (let w = this.root; R.valid(w) && !ancestors.has(w); w = w.GetParent()) ancestors.add(w);
+        for (const name of ["W_SystemPanel", "ScaleBox_0", "PBZCommonLocRichText_0", "Image_153"]) {
+            const w = this.view[name];
+            if (!R.valid(w) || ancestors.has(w)) continue;
+            const old = w.GetVisibility();
+            if (old === UE.ESlateVisibility.Collapsed) continue;
+            if (!this.hidden.some(record => record[0] === w)) this.hidden.push([w, old]);
+            w.SetVisibility(UE.ESlateVisibility.Collapsed);
+        }
+    }
     open() {
+        if (this.active) return;
         this.active = false; this.pendingKind = null; this.previewedComponent = null; this.pending = { ...this.settings.choice }; this.build(); this.active = true;
         this.navigationTraceBudget = 4;
         this.positioned = false;
         this.root.SetVisibility(UE.ESlateVisibility.SelfHitTestInvisible);
         this.languageRoot.SetVisibility(UE.ESlateVisibility.SelfHitTestInvisible); this.notice = null; this.refreshLanguage();
-        this.openInfo();
-        for (const name of ["W_SystemPanel", "ScaleBox_0", "PBZCommonLocRichText_0", "Image_153"]) {
-            const w = this.view[name]; if (R.valid(w)) { this.hidden.push([w, w.GetVisibility()]); w.SetVisibility(UE.ESlateVisibility.Collapsed); }
-        }
+        this.scope.safe("open native information panel", () => this.openInfo());
+        this.hideNativeContent();
         this.view.RemoveKeyDelegate.Broadcast("ShowHat"); this.view.RemoveKeyDelegate.Broadcast("HideHat");
-        this.setFeedbackMode(true); this.markEquipped(); this.refreshAction(); this.preview();
+        this.scope.safe("initial selection feedback", () => { this.setFeedbackMode(true); this.markEquipped(); this.refreshAction(); });
+        this.scope.safe("initial cosmetic preview", () => this.preview());
         this.group.DeselectAll(); this.selectedInfo = null;
         const selected = this.cards.findIndex(x => x.kind === (this.tab === C.MASK_TAB ? "mask" : "style") && x.item.id === this.pending[x.kind]);
         if (selected >= 0) this.selectedInfo = this.cards[selected];
@@ -400,8 +447,13 @@ class HairPage {
             this.group.SelectButtonAtIndex(Math.max(0, selected), false);
             this.group.GetSelectedButtonBase().SetFocus();
         } finally { this.initializingFocus = false; }
-        this.refreshAction();
-        this.openFollowAction();
+        this.scope.safe("initial input action", () => this.refreshAction());
+        try { this.openFollowAction(); }
+        catch (error) {
+            this.scope.report("private restore action", error);
+            this.scope.safe("clear partial restore action", () => this.closeFollowAction());
+            this.scope.safe("fallback restore button", () => this.openRestoreButton());
+        }
         this.scope.log("content navigation ready " + this.tab + "; native-custom; " + this.cards.length + " cards");
     }
     select(info) {
@@ -457,6 +509,34 @@ class HairPage {
         if (!this.active) return;
         if (!NativeUI.canOpenSystemUI(this.view)) { this.view.pushTips("UI_Character_68"); return; }
         this.pendingKind = null; this.pending = { ...C.defaults }; this.confirm(true); this.preview(); this.group.DeselectAll(); this.selectedInfo = null; this.hoverInfo = null; this.refreshAction();
+    }
+    openRestoreButton() {
+        if (R.valid(this.restoreRoot)) return;
+        const view = this.view;
+        this.restoreRoot = R.make(UE.SizeBox, view);
+        this.restoreRoot.SetWidthOverride(230); this.restoreRoot.SetHeightOverride(44);
+        const slot = this.parentOverlay.AddChildToOverlay(this.restoreRoot);
+        slot.SetHorizontalAlignment(UE.EHorizontalAlignment.HAlign_Left);
+        slot.SetVerticalAlignment(UE.EVerticalAlignment.VAlign_Bottom);
+        slot.SetPadding(R.margin(375, 0, 0, 18));
+        const button = this.restoreButton = R.newWidget(C.paths.languageButton, view);
+        this.restoreRoot.AddChild(button);
+        button.SetIsFocusable(true);
+        if (R.valid(button.InputActionWidget)) button.InputActionWidget.SetVisibility(UE.ESlateVisibility.Collapsed);
+        if (R.valid(button.Image_51)) button.Image_51.SetVisibility(UE.ESlateVisibility.Collapsed);
+        button.RichText.SetPBZFormatText(R.text(C.message("restore", this.settings.language)));
+        button.OnButtonBaseClicked.Add(this.followClick);
+        // Preserve keyboard/controller access to the fallback, too.
+        if (R.valid(this.languageButton)) {
+            this.languageButton.SetNavigationRuleExplicit(UE.EUINavigation.Right, button);
+            button.SetNavigationRuleExplicit(UE.EUINavigation.Left, this.languageButton);
+        }
+    }
+    closeRestoreButton() {
+        if (R.valid(this.restoreButton)) this.scope.safe("remove fallback restore listener", () => this.restoreButton.OnButtonBaseClicked.Remove(this.followClick));
+        if (R.valid(this.restoreRoot)) this.scope.safe("remove fallback restore button", () => this.restoreRoot.RemoveFromParent());
+        if (R.valid(this.restoreButton) && R.valid(this.languageButton)) this.scope.safe("restore language navigation", () => this.bindNavigation(this.languageButton, -1));
+        this.restoreRoot = null; this.restoreButton = null;
     }
     openFollowAction() {
         const handle = new UE.DataTableRowHandle(); handle.DataTable = UE.DataTable.Load(C.paths.actionTable); handle.RowName = C.FOLLOW;
@@ -543,6 +623,8 @@ class HairPage {
             heading.SetStyle(R.loadClass(language === "en" ? C.paths.textStyleEN : C.paths.textStyle));
             heading.SetFont(font(18, language)); heading.SetText(R.text(C.message(key, language)));
         }
+        for (const info of this.cards) if (R.valid(info.fallbackLabel)) info.fallbackLabel.SetText(R.text(C.cardName(info.item, language) || info.item.id));
+        if (R.valid(this.restoreButton)) this.restoreButton.RichText.SetPBZFormatText(R.text(C.message("restore", language)));
         if (R.valid(this.status)) this.refreshAction();
         if (R.valid(this.languageButton)) {
             // The bilingual switch uses the native Chinese font's Latin glyphs.
@@ -578,6 +660,7 @@ class HairPage {
     }
     tick() {
         if (!this.active) return;
+        this.scope.safe("retain active overlay visibility", () => this.hideNativeContent());
         this.scope.safe("position hair grid", () => this.position());
         this.scope.safe("rebind hair preview", () => {
             const component = this.view.getPreviewDollComponent();
@@ -589,17 +672,23 @@ class HairPage {
         this.active = false; ++this.serial;
         this.pendingKind = null; this.previewedComponent = null; this.hoverInfo = null; this.scope.safe("restore native appearance information", () => this.closeInfo());
         this.scope.safe("remove follow outfit action", () => this.closeFollowAction());
+        this.scope.safe("remove fallback restore button", () => this.closeRestoreButton());
         this.scope.safe("unbind hair action", () => this.view.RemoveKeyDelegate.Broadcast("WeaponConfirm"));
         const component = this.scope.safe("read preview for cleanup", () => this.view.getPreviewDollComponent());
         if (R.valid(component)) this.scope.safe("restore committed preview", () => this.appearance.clearPreview(component));
-        const nativeCard = require("UI/Widget/Button/ButtonBaseWeapon");
-        for (const info of this.cards) if (R.valid(info.button)) { this.clearCardFeedback(info.button); nativeCard.resetGridSlotHoverAnimation(info.button, info.button.hoverScaleAnimation); }
+        this.scope.safe("clear outgoing card animations", () => {
+            const nativeCard = require("UI/Widget/Button/ButtonBaseWeapon");
+            for (const info of this.cards) if (R.valid(info.button)) this.scope.safe("clear card feedback", () => { this.clearCardFeedback(info.button); nativeCard.resetGridSlotHoverAnimation(info.button, info.button.hoverScaleAnimation); });
+        });
         if (R.valid(this.root)) this.scope.safe("hide hair content", () => this.root.SetVisibility(UE.ESlateVisibility.Collapsed));
         this.scope.safe("detach swatch focus", () => this.updateSwatchFocus(null));
         if (R.valid(this.languageRoot)) this.scope.safe("hide language switch", () => this.languageRoot.SetVisibility(UE.ESlateVisibility.Collapsed));
-        for (const [widget, visibility] of this.hidden.splice(0)) if (R.valid(widget)) this.scope.safe("restore outfit content", () => widget.SetVisibility(visibility));
+        for (const [widget, visibility] of this.hidden.splice(0)) if (R.valid(widget)) this.scope.safe("restore outfit content", () => {
+            if (widget.GetVisibility() === UE.ESlateVisibility.Collapsed) widget.SetVisibility(visibility);
+        });
     }
     clearContent() {
+        this.closeRestoreButton();
         this.navigationGeneration = (this.navigationGeneration || 0) + 1;
         this.scope.safe("detach swatch focus", () => this.updateSwatchFocus(null));
         this.swatchFrame = null;
@@ -650,8 +739,12 @@ function registerOneTab(host, settings, id) {
     desc.TabId = id; desc.TabText = flow(C.message(C.tabMessage(id), settings.language)); desc.TabButtonType = original.TabButtonType;
     desc.SwitchSound = original.SwitchSound; desc.bHidden = false;
     for (const [key, path] of [["IconBrush", id === C.MASK_TAB ? C.paths.maskTabIcon : C.paths.tabIcon], ["SelectedIconBrush", id === C.MASK_TAB ? C.paths.maskTabIcon : C.paths.tabSelected]]) {
-        const brush = new UE.SlateBrush(), texture = UE.Texture2D.Load(path);
-        if (!R.valid(texture) || R.path(texture) !== path) throw new Error("Native hair tab art unavailable");
+        const brush = new UE.SlateBrush(); let texture;
+        try { texture = UE.Texture2D.Load(path); } catch (error) { console.warn("[PBZ Combined UI] tab icon: " + error); }
+        if (!R.valid(texture) || R.path(texture).toLowerCase() !== path.toLowerCase()) {
+            console.warn("[PBZ Combined UI] using native outfit tab icon for " + id);
+            desc[key] = original[key]; continue;
+        }
         brush.DrawAs = UE.ESlateBrushDrawType.Image; brush.ImageType = UE.ESlateBrushImageType.FullColor; brush.ResourceName = "None";
         const nativeSize = original.IconBrush.ImageSize;
         R.brushSize(brush, nativeSize && nativeSize.X > 0 ? nativeSize.X : 48, nativeSize && nativeSize.Y > 0 ? nativeSize.Y : 48);

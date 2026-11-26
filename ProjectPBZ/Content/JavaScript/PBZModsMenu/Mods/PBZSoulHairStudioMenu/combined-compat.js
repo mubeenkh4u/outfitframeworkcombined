@@ -4,6 +4,24 @@
 function createCompatibility() {
     const outfitId = "pbz_outfit_acateliesoul";
     const sources = { atelier: null, studio: null };
+    // A native Appearance widget is shared by three logical pages. Reserve it
+    // before any native callback, not only after the custom grid has been built.
+    const menus = new WeakMap();
+    let menuSerial = 0;
+    const report = (where, error) => console.warn("[PBZ Combined UI] " + where + ": " + error);
+    function reserveStudioMenu(view, tab) {
+        if (!view) throw new Error("Missing native appearance widget");
+        const token = { view, tab: String(tab), generation: ++menuSerial };
+        menus.set(view, token);
+        try { sources.atelier?.suspendMenu?.(view); } catch (error) { report("suspend Atelier", error); }
+        return token;
+    }
+    function releaseStudioMenu(token) {
+        if (!token || menus.get(token.view) !== token) return false;
+        menus.delete(token.view);
+        return true;
+    }
+    function studioOwnsMenu(view) { return !!view && menus.has(view); }
     const isAtelier = outfit => String(outfit || "").toLowerCase() === outfitId;
     function register(name, api) {
         if (sources[name]) throw new Error("[PBZ Combined] " + name + " is already registered");
@@ -20,6 +38,16 @@ function createCompatibility() {
         isAtelier,
         registerAtelier: api => register("atelier", api),
         registerStudio: api => register("studio", api),
+        reserveStudioMenu, releaseStudioMenu, studioOwnsMenu,
+        studioMenuTab(view) { return view ? menus.get(view)?.tab : undefined; },
+        studioRegistered() { return !!sources.studio; },
+        beforeNativeMenuClose(view) {
+            try { sources.atelier?.suspendMenu?.(view); } catch (error) { report("close Atelier", error); }
+        },
+        afterNativeInputRefresh(view) {
+            if (studioOwnsMenu(view)) return;
+            try { sources.atelier?.nativeInputRefreshed?.(view); } catch (error) { report("refresh Atelier input", error); }
+        },
         atelierOwnsHat,
         atelierHatRow(outfit, component) {
             return atelierOwnsHat(outfit, component, true) ? sources.atelier.hatRow() : undefined;
@@ -43,5 +71,5 @@ function createCompatibility() {
         studioHasHat(component) { return !!sources.studio?.hasHat(component); }
     };
 }
-const key = "__PBZCombinedOutfitCompatibility_v2";
+const key = "__PBZCombinedOutfitCompatibility_v3";
 module.exports = globalThis[key] ||= createCompatibility();
