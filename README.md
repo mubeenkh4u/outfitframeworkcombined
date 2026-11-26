@@ -1,4 +1,4 @@
-# PBZ Outfit Framework Combined v0.2.1 — menu compatibility hotfix
+# PBZ Outfit Framework Combined v0.2.2 — native menu lifecycle repair candidate
 
 A combined installation for personal testing of:
 - Soul's Appearance Studio v1.3.3 (Nexus 559, Szy1115)
@@ -7,13 +7,14 @@ A combined installation for personal testing of:
 
 Preserves the original upstream asset containers without repacking or modifying them. Includes the 22 Appearance Studio triplets plus the Atelier and Framework triplets (24 triplets, 72 cooked files). Studio assets are Git LFS objects and their pointers are not playable files.
 
-## v0.2.1 menu repair
-- One logical owner for the native Appearance widget: native Outfit/Atelier, Hair or Masks.
-- Native initialization, outfit catalog creation and framework refreshes are no longer suppressed while opening a Studio tab. A ready native preview session is reused for Hair/Masks switches.
-- Atelier detaches its native grid listeners before Studio takes ownership. In combined mode it no longer wraps the native refresh/finish methods per widget or forces a second Appearance re-entry. Native confirm/back behavior is restored when leaving Studio.
-- The Studio router guards recursive native tab selection, reconciles cached callbacks, retries missing dynamic tab registrations and restores the native grid if a custom overlay fails. It avoids hiding any ancestor of its own overlay. Missing decorative icons fall back to labels; a missing restore-action table has a fallback button.
-- 41 appearance checks and 33 menu lifecycle checks passed under mocks; actual game testing is still necessary. The original 72 cooked assets are unchanged. No engine fingerprint checks were bypassed.
-- If upgrading from v0.2.0, use the script-only ZIP and replace the two complete Mods Menu script folders; do not reinstall the cooked assets.
+## v0.2.2 menu repair
+- Restores the upstream Studio native FinishCurrentWidget -> Appearance initialization -> BP_InitWidget opening sequence for every custom tab. The widget lease keeps Atelier detached through native callbacks.
+- Allows native catalog creation during initialization; prevents native outfit grid refresh from replacing the active custom overlay.
+- Checks both native navigation caches even when CommonUI buttons exist, repairs missing entries without duplicate IDs, and checks the actual tab button rather than assuming RegisterDynamicTab returns a boolean.
+- Adds a deferred CommonUI selected-tab observer when available, and selected-tab reconciliation as a fallback.
+- Writes bounded, timestamped diagnostics to PBZCombined-menu.log in the game project Saved directory, with an explicit 0.2.2 startup marker and route, cache, init, open and error events.
+- 41 appearance checks and 38 menu lifecycle checks passed under mocks. The original 72 cooked asset references are unchanged. No engine fingerprint checks were bypassed. In-game validation remains necessary.
+- When upgrading from v0.2.0 or v0.2.1, replace both script folders using the menu patch ZIP. Keep the original cooked assets and loader.
 
 ## Installation
 1. Back up saves and any existing mod files. Close the game.
@@ -31,7 +32,7 @@ Preserves the original upstream asset containers without repacking or modifying 
 - Both original script entrypoints are preserved for loader discovery, but share one compatibility coordinator. The duplicate PBZModLoader edition is deliberately omitted. Existing saved preferences are preserved; a new controller field defaults to Atelier.
 
 ## Verification and limitations
-- All 24 runtime JS modules passed syntax checks. The compatibility test suite passed 41 appearance checks and 33 menu checks with mock UE objects, including hat transitions, preview isolation, shared palette, tab re-entry, input ownership, and native refreshes.
+- All 24 runtime JS modules passed syntax checks. The compatibility test suite passed 41 appearance checks and 38 menu checks with mock UE objects, including hat transitions, preview isolation, shared palette, tab re-entry, input ownership, and native refreshes.
 - tools/asset-manifest.json pins the exact Git blobs from the three source branches. tools/verify.cjs verifies all downloaded files against their Git blob/LFS SHA-256 and size, validates IoStore TOC magic, and rejects incomplete/extra cooked triplets.
 - Repository asset references are unchanged. The CI build verifies actual LFS binary downloads using the verifier. No Unreal/PuerTS runtime or visual testing was possible here. Third-party mods replacing the global appearance table or slot 8716 are not automatically merged. A confirmed complete standalone game-tested release requires testing in PBZ.
 

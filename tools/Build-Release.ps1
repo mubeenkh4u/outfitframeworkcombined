@@ -8,7 +8,7 @@ if (!(Test-Path -LiteralPath $GitExe)) {
     $GitExe = (Get-Command git -ErrorAction Stop).Source
 }
 if (!$Output) {
-    $Output = Join-Path (Split-Path $Root -Parent) ("PBZ-OutfitFrameworkCombined-v0.2.1-" + (Get-Date -Format yyyyMMdd-HHmmss) + ".zip")
+    $Output = Join-Path (Split-Path $Root -Parent) ("PBZ-OutfitFrameworkCombined-v0.2.2-" + (Get-Date -Format yyyyMMdd-HHmmss) + ".zip")
 }
 $Output = [System.IO.Path]::GetFullPath($Output)
 if (Test-Path -LiteralPath $Output) { throw "Output already exists: $Output" }

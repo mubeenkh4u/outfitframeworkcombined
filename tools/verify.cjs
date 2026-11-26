@@ -43,7 +43,7 @@ async function main() {
         ui: load(studio, "ui.js"),
         atelier: load(atelier, "guarda_roupa.js")
     });
-    requireCheck(checks.length === 41 && menus.length === 33, "Unexpected compatibility test count");
+    requireCheck(checks.length === 41 && menus.length === 38, "Unexpected compatibility test count");
     console.log("Runtime JS parsed:", jsCount, "| appearance mock checks:", checks.length, "| menu lifecycle mock checks:", menus.length);
     requireCheck(!fs.existsSync(path.join(root, "ProjectPBZ", "PBZModLoader", "mods", "PBZSoulHairStudio")), "Duplicate Studio loader edition detected");
     requireCheck(manifest.assets.length === manifest.assetCount && manifest.assetCount === 72, "Incorrect asset count");

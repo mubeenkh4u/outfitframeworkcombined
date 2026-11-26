@@ -436,7 +436,7 @@ class HairPage {
         this.view.RemoveKeyDelegate.Broadcast("ShowHat"); this.view.RemoveKeyDelegate.Broadcast("HideHat");
         this.scope.safe("initial selection feedback", () => { this.setFeedbackMode(true); this.markEquipped(); this.refreshAction(); });
         this.scope.safe("initial cosmetic preview", () => this.preview());
-        this.group.DeselectAll(); this.selectedInfo = null;
+        this.scope.safe("clear initial selection", () => this.group.DeselectAll()); this.selectedInfo = null;
         const selected = this.cards.findIndex(x => x.kind === (this.tab === C.MASK_TAB ? "mask" : "style") && x.item.id === this.pending[x.kind]);
         if (selected >= 0) this.selectedInfo = this.cards[selected];
         // Match the native panel's explicit selection-to-focus handoff. A
@@ -444,8 +444,11 @@ class HairPage {
         // or equipping it until the player navigates or clicks it.
         this.initializingFocus = true;
         try {
-            this.group.SelectButtonAtIndex(Math.max(0, selected), false);
-            this.group.GetSelectedButtonBase().SetFocus();
+            this.scope.safe("initial card focus", () => {
+                this.group.SelectButtonAtIndex(Math.max(0, selected), false);
+                const button = this.group.GetSelectedButtonBase();
+                if (R.valid(button)) button.SetFocus();
+            });
         } finally { this.initializingFocus = false; }
         this.scope.safe("initial input action", () => this.refreshAction());
         try { this.openFollowAction(); }
@@ -727,9 +730,29 @@ class HairPage {
     }
 }
 exports.HairPage = HairPage;
+function containsId(array, id, descriptor = false) {
+    if (!array || typeof array.Num !== "function") return false;
+    for (let i = 0; i < array.Num(); i++) {
+        const row = array.Get(i);
+        if (String(descriptor ? row.TabId : row).toLowerCase() === id.toLowerCase()) return true;
+    }
+    return false;
+}
+exports.tabsReady = function (host) {
+    if (!R.valid(host) || !R.valid(host.TabList)) return false;
+    const tabs = host.TabList;
+    return [C.TAB, C.MASK_TAB].every(id => R.valid(tabs.GetTabButton(id)) &&
+        containsId(tabs.PreregisteredTabInfoArray, id, true) && containsId(tabs.TabButtonIDs, id));
+};
 exports.registerTab = function (host, settings) {
     if (!R.valid(host.TabList)) throw new Error("Native character tab list is unavailable");
-    for (const id of [C.TAB, C.MASK_TAB]) registerOneTab(host, settings, id);
+    // A registered button alone is insufficient: PBZ also rebuilds its two
+    // native navigation caches independently. Repair both, idempotently.
+    const errors = [];
+    for (const id of [C.TAB, C.MASK_TAB]) {
+        try { registerOneTab(host, settings, id); } catch (error) { errors.push(id + ": " + String(error)); }
+    }
+    if (errors.length) throw new Error(errors.join("; "));
 };
 function registerOneTab(host, settings, id) {
     const tabs = host.TabList;
@@ -750,15 +773,15 @@ function registerOneTab(host, settings, id) {
         R.brushSize(brush, nativeSize && nativeSize.X > 0 ? nativeSize.X : 48, nativeSize && nativeSize.Y > 0 ? nativeSize.Y : 48);
         brush.ResourceObject = texture; brush.TintColor = tint(id === C.MASK_TAB && key === "SelectedIconBrush" ? [0, 0, 0] : [1, 1, 1]); desc[key] = brush;
     }
-    if (!R.valid(tabs.GetTabButton(id)) && !tabs.RegisterDynamicTab(desc)) throw new Error("Native hair tab registration failed");
+    if (!R.valid(tabs.GetTabButton(id))) {
+        tabs.RegisterDynamicTab(desc);
+        if (!R.valid(tabs.GetTabButton(id))) throw new Error("Native dynamic tab button was not created: " + id);
+    }
     // Dynamic registration creates the CommonUI button, but PBZ's native
     // keyboard/controller handlers read these separate ordered caches.
     const descriptors = tabs.PreregisteredTabInfoArray, ids = tabs.TabButtonIDs;
-    let hasDescriptor = false, hasID = false;
-    for (let i = 0; i < descriptors.Num(); i++) if (String(descriptors.Get(i).TabId) === id) { hasDescriptor = true; break; }
-    for (let i = 0; i < ids.Num(); i++) if (String(ids.Get(i)) === id) { hasID = true; break; }
-    if (!hasDescriptor) descriptors.Add(desc);
-    if (!hasID) ids.Add(id);
+    if (!containsId(descriptors, id, true)) descriptors.Add(desc);
+    if (!containsId(ids, id)) ids.Add(id);
     const previous = host.TabList.GetTabButton(id === C.MASK_TAB ? C.TAB : "Appearance"), first = host.TabList.GetTabButton("Character");
     if (R.valid(previous) && R.valid(first) && previous.Slot && first.Slot) {
         const old = previous.Slot.Padding, native = first.Slot.Padding;

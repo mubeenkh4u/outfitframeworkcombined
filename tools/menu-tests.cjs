@@ -64,7 +64,7 @@ function runMenuTests(sources) {
     }
     const U={
         pageByView:pages,cardInfo:new WeakMap(),flow:x=>x,
-        registerTab(host){host.registered=true;},refreshTab(){},unregisterTab(){},
+        registerTab(host){host.registered=true;},tabsReady(host){return !!host.registered;},refreshTab(){},unregisterTab(){},
         HairPage:class{
             constructor(scope,appearance,settings,host){this.view=host.W_Appearance_V2;this.host=host;this.active=false;pages.set(this.view,this);}
             setTab(tab){this.tab=tab;}
@@ -96,7 +96,7 @@ function runMenuTests(sources) {
         host.W_Appearance_V2=Object.assign(Object.create(A),{inputBarSuspended:true,IsVisible:()=>true,W_SystemPanel:{}});
         host.WidgetSwitcher_31={GetActiveWidgetIndex:()=>host.index};
         host.W_SecondTabLine={InitDataByText:x=>events.push("title:"+x)};
-        host.TabList={GetSelectedTabId:()=>host.selected,SelectTabByID(id){host.selected=id;host.onTabSelected(id);},GetTabButton:id=>host.registered?{}:null};
+        host.TabList={GetSelectedTabId:()=>host.selected,SelectTabByID(id){host.selected=id;host.onTabSelected(id);},GetTabButton:id=>host.registered?{}:null,OnTabSelected:{fn:null,Add(fn){this.fn=fn;},Remove(fn){if(this.fn===fn)this.fn=null;}}};
         return host;
     }
     const host=makeHost(), view=host.W_Appearance_V2;
@@ -110,13 +110,13 @@ function runMenuTests(sources) {
     check("Native Finish inside transition does not lose custom tab",pages.get(view)?.active&&compat.studioMenuTab(view)===C.TAB&&host.selected===C.TAB);
     check("Native text and action updates are allowed during initialization",events.includes("native:updateUnifiedText")&&events.includes("native:refreshReplaceOutfitInputBar"));
     events.length=0;view.createSlots();view.refreshAllSlots();view.refreshReplaceOutfitInputBar();view.refreshHatInputBar();
-    check("Active overlay does not suppress native catalog refresh",events.includes("native:createSlots")&&events.includes("native:refreshAllSlots"));
+    check("Active overlay protects custom content from native catalog refresh",!events.includes("native:createSlots")&&!events.includes("native:refreshAllSlots")&&events.includes("overlay:markers"));
     check("Studio owns confirm and hat input during its overlay",events.includes("overlay:input")&&!events.includes("native:refreshHatInputBar")&&!events.includes("native:refreshReplaceOutfitInputBar"));
     host.selected=C.MASK_TAB;events.length=0;host.onTabSelected(C.MASK_TAB);
-    check("Hair to Masks reuses the ready native session",!events.includes("native:tab:Appearance")&&events.includes("overlay:leave:"+C.TAB)&&events.includes("overlay:open:"+C.MASK_TAB));
+    check("Hair to Masks follows upstream native finish and initialization",events.includes("native:tab:Appearance")&&events.includes("native:finish")&&events.includes("native:init")&&events.includes("overlay:leave:"+C.TAB)&&events.includes("overlay:open:"+C.MASK_TAB));
     check("Masks route owns the shared view",compat.studioMenuTab(view)===C.MASK_TAB&&pages.get(view)?.active);
     view.finishDuringInit=true; view.BP_InitWidget(); view.finishDuringInit=false;
-    check("Native re-init pauses the overlay rather than swallowing init",!pages.get(view)?.active&&compat.studioOwnsMenu(view));
+    check("Native re-init opens overlay only after native initialization",pages.get(view)?.active&&compat.studioOwnsMenu(view));
     while(timers.length)timers.shift()();
     check("Overlay resumes after native re-init",pages.get(view)?.active&&compat.studioMenuTab(view)===C.MASK_TAB);
     host.selected="Appearance";events.length=0;host.onTabSelected("Appearance");
@@ -131,18 +131,42 @@ function runMenuTests(sources) {
     check("Build failure returns safely to native outfit tab",failing.selected==="Appearance");
     const missed=makeHost();missed.BP_InitWidget();
     missed.selected=C.TAB;
-    const poll=repeats.find(x=>x.ms===100).fn;
+    const poll=repeats.find(x=>x.ms===250).fn;
     poll();
     check("Cached native tab callback is recovered by selected-tab reconciliation",pages.get(missed.W_Appearance_V2)?.active&&compat.studioMenuTab(missed.W_Appearance_V2)===C.TAB);
     missed.selected="Appearance";poll();
     check("Cached return to outfit releases the previous custom overlay",!pages.get(missed.W_Appearance_V2)?.active&&!compat.studioOwnsMenu(missed.W_Appearance_V2));
+    const direct=makeHost();direct.BP_InitWidget();direct.selected=C.MASK_TAB;direct.TabList.OnTabSelected.fn(C.MASK_TAB);
+    while(timers.length)timers.shift()();
+    check("CommonUI selected-tab delegate recovers a cached native callback",pages.get(direct.W_Appearance_V2)?.active&&compat.studioMenuTab(direct.W_Appearance_V2)===C.MASK_TAB);
+    const early=makeHost();early.W_Appearance_V2.IsVisible=()=>false;early.selected=C.TAB;early.onTabSelected(C.TAB);
+    check("Native BP_InitWidget opens custom overlay before view visibility settles",pages.get(early.W_Appearance_V2)?.active&&compat.studioMenuTab(early.W_Appearance_V2)===C.TAB);
     const token1=compat.reserveStudioMenu(view,C.TAB),token2=compat.reserveStudioMenu(view,C.MASK_TAB);
     check("Stale cleanup cannot release a newer reservation",!compat.releaseStudioMenu(token1)&&compat.studioMenuTab(view)===C.MASK_TAB);
     compat.releaseStudioMenu(token2);
     check("Explicit release restores native UI ownership",!compat.studioOwnsMenu(view));
 
     // Exercise the real Studio visibility routine, not a duplicate model.
-    const actualUI=load("ui",{"ue":UE,"puerts":{},"./catalog":C,"./runtime":R,"./combined-compat":compat,"Library/UIHelper":{default:{}},"UI/Widget/Button/GridSelectionTransition":{}});
+    const tabP={$ref:value=>({value}),$unref:ref=>ref.value};
+    Object.assign(UE,{PBZTabDescriptor:class{},FlowLocText:class{},SlateBrush:class{},SlateColor:class{},
+        Texture2D:{Load:path=>({path})},ESlateBrushDrawType:{Image:1},ESlateBrushImageType:{FullColor:1},
+        ESlateColorStylingMode:{UseColor_Specified:1}});
+    Object.assign(R,{text:x=>x,path:x=>x.path,rgba:x=>x,brushSize(){}});
+    Object.assign(C.paths,{tabIcon:"hair",tabSelected:"hair-selected",maskTabIcon:"masks"});
+    const actualUI=load("ui",{"ue":UE,"puerts":tabP,"./catalog":C,"./runtime":R,"./combined-compat":compat,"Library/UIHelper":{default:{}},"UI/Widget/Button/GridSelectionTransition":{}});
+    const rows=items=>({items,Num(){return this.items.length},Get(i){return this.items[i]},Add(x){this.items.push(x)}});
+    const original={TabId:"Appearance",TabButtonType:1,SwitchSound:null,IconBrush:{ImageSize:{X:48,Y:48}}};
+    const registered=new Map([["Appearance",{}],["Character",{}]]);
+    const nativeTabs={PreregisteredTabInfoArray:rows([original]),TabButtonIDs:rows(["Appearance"]),
+        GetPreregisteredTabInfo(id,out){if(id!=="Appearance")return false;out.value=original;return true;},
+        GetTabButton:id=>registered.get(id),RegisterDynamicTab(desc){registered.set(desc.TabId,{}); /* native void return */}};
+    const actualHost={TabList:nativeTabs};
+    actualUI.registerTab(actualHost,{language:"en"});
+    check("Real tab registration accepts a native void return when the button exists",actualUI.tabsReady(actualHost));
+    nativeTabs.TabButtonIDs.items=["Appearance"];nativeTabs.PreregisteredTabInfoArray.items=[original];
+    check("Existing tab buttons do not hide missing navigation caches",!actualUI.tabsReady(actualHost));
+    actualUI.registerTab(actualHost,{language:"en"});actualUI.registerTab(actualHost,{language:"en"});
+    check("Actual tab registration repairs both caches without duplicates",actualUI.tabsReady(actualHost)&&nativeTabs.TabButtonIDs.Num()===3&&nativeTabs.PreregisteredTabInfoArray.Num()===3);
     const mkWidget=(parent,visibility=V.Visible)=>({parent,visibility,GetParent(){return this.parent},GetVisibility(){return this.visibility},SetVisibility(v){this.visibility=v}});
     const outer=mkWidget(null),parent=mkWidget(outer),root=mkWidget(parent),grid=mkWidget(parent),text=mkWidget(parent);
     const page={active:true,root,view:{W_SystemPanel:grid,ScaleBox_0:outer,PBZCommonLocRichText_0:text},hidden:[]};

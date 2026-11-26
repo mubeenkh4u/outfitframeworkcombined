@@ -13,6 +13,51 @@ const scope = new R.Scope(), hosts = new Map(), settings = new R.Settings(scope)
 const routes = new Map(), byView = new WeakMap(), routing = new Set(), initializing = new Set();
 const knownHosts = new Map(), failedTabs = new WeakMap();
 let handleTab, nativeTab, nextHostScan = 0;
+const traceLines = [], lastHostState = new WeakMap(), tabListeners = new Map();
+let traceFile;
+function trace(event, detail = "") {
+    const line = new Date().toISOString() + " " + event + (detail ? " " + detail : "");
+    traceLines.push(line); if (traceLines.length > 160) traceLines.shift();
+    scope.log("[Combined UI 0.2.2] " + event + " " + detail);
+    // Persist bounded diagnostics even when the Mods Menu console log is unavailable.
+    try {
+        if (!traceFile) {
+            const k = UE.KismetSystemLibrary;
+            traceFile = k.ConvertToAbsolutePath(k.GetProjectSavedDirectory()).replace(/[\\/]+$/, "") + "/PBZCombined-menu.log";
+        }
+        UE.EasyCsv.SaveStringToFileWithFullPath(traceLines.join("\n") + "\n", traceFile);
+    } catch (_) { /* console remains available */ }
+}
+function selectedTab(host) {
+    return R.valid(host) && R.valid(host.TabList) ? String(host.TabList.GetSelectedTabId()) : "";
+}
+function describe(host, view = host.W_Appearance_V2) {
+    try { return "selected=" + selectedTab(host) + " switcher=" + (R.valid(host.WidgetSwitcher_31) ? host.WidgetSwitcher_31.GetActiveWidgetIndex() : "?") +
+        " view=" + R.valid(view) + " suspended=" + (R.valid(view) ? view.inputBarSuspended : "?") + " visible=" + (R.valid(view) ? view.IsVisible() : "?"); }
+    catch (error) { return "state unavailable: " + String(error); }
+}
+function observeTabs(host) {
+    const list = host.TabList, previous = tabListeners.get(host);
+    if (previous?.list === list || !R.valid(list)) return;
+    if (previous) removeTabListener(host);
+    const delegate = scope.safe("read CommonUI tab delegate", () => list.OnTabSelected);
+    if (!delegate || typeof delegate.Add !== "function") { tabListeners.set(host, {list}); trace("delegate-unavailable", describe(host)); return; }
+    const callback = id => {
+        const tab = customTab(id);
+        if (!tab || routing.has(host)) return;
+        trace("delegate-tab", String(id));
+        // Defer until the game finishes dispatching its native CommonUI callbacks.
+        scope.later(() => {
+            if (!R.valid(host) || selectedTab(host).toLowerCase() !== tab.toLowerCase() || routes.get(host)?.tab === tab || failedTabs.get(host) === tab) return;
+            handleTab.call(host, nativeTab, tab);
+        }, 0);
+    };
+    delegate.Add(callback); tabListeners.set(host, { list, delegate, callback }); trace("delegate-bound");
+}
+function removeTabListener(host) {
+    const record = tabListeners.get(host); tabListeners.delete(host);
+    if (record?.delegate && R.valid(record.list)) scope.safe("remove tab observer", () => record.delegate.Remove(record.callback));
+}
 let appearance;
 exports.stop = () => scope.stop();
 const instance = { active: true, exports };
@@ -27,7 +72,7 @@ function validate(proto, name, file) {
 function patch(proto, name, file, classPath, wrapper) { scope.patch(proto, name, wrapper, Native.methods[file][name], classPath); }
 function pageFor(view) {
     const route = byView.get(view), page = U.pageByView.get(view);
-    return route?.phase === "active" && page?.active && page.hairMode && compat.studioOwnsMenu(view) ? page : null;
+    return (route?.phase === "active" || route?.phase === "opening") && page?.active && page.hairMode && compat.studioOwnsMenu(view) ? page : null;
 }
 function customTab(id) {
     const key = String(id).toLowerCase();
@@ -73,6 +118,7 @@ function attachRouteView(route) {
 function failRoute(route, error) {
     if (routes.get(route.host) !== route) return;
     scope.report("open " + route.tab + " menu", error);
+    trace("route-error", route.tab + " " + describe(route.host) + " " + String(error?.stack || error).slice(0, 1800));
     failedTabs.set(route.host, route.tab);
     closeRoute(route.host, true);
     // Do not leave a broken custom panel or a hidden native outfit list.
@@ -82,9 +128,11 @@ function failRoute(route, error) {
         if (customTab(host.TabList.GetSelectedTabId())) host.TabList.SelectTabByID("Appearance", true);
     }, 0);
 }
-function openRoute(route) {
-    if (routes.get(route.host) !== route || route.phase !== "pending" || routing.has(route.host) || initializing.has(route.view)) return;
-    if (!attachRouteView(route) || !nativeReady(route.host, route.view)) return;
+function openRoute(route, fromNativeInit = false) {
+    if (routes.get(route.host) !== route || route.phase !== "pending" || initializing.has(route.view)) return;
+    if (!fromNativeInit && routing.has(route.host)) return;
+    if (!attachRouteView(route) || (!fromNativeInit && !nativeReady(route.host, route.view))) return;
+    trace("overlay-open", route.tab + " nativeInit=" + fromNativeInit + " " + describe(route.host, route.view));
     route.phase = "opening";
     try {
         let page = hosts.get(route.host);
@@ -99,8 +147,8 @@ function openRoute(route) {
         page.setTab(route.tab); page.hairMode = true;
         page.open();
         route.phase = "active";
-        route.host.W_SecondTabLine.InitDataByText(U.flow(C.message(C.tabMessage(route.tab), settings.language)));
-        scope.log("[Combined UI] active " + route.tab);
+        scope.safe("update custom tab title", () => route.host.W_SecondTabLine.InitDataByText(U.flow(C.message(C.tabMessage(route.tab), settings.language))));
+        trace("overlay-active", route.tab + " cards=" + (page.cards?.length ?? "?") + " " + describe(route.host));
     } catch (error) { failRoute(route, error); }
 }
 function pollRoutes() {
@@ -110,9 +158,9 @@ function pollRoutes() {
     if (now >= nextHostScan) {
         nextHostScan = now + 1500;
         for (const host of knownHosts.keys()) if (!R.valid(host)) {
-            knownHosts.delete(host); closeRoute(host, true); hosts.delete(host);
+            knownHosts.delete(host); removeTabListener(host); closeRoute(host, true); hosts.delete(host);
         }
-        if (!knownHosts.size && UE.WidgetBlueprintLibrary?.GetAllWidgetsOfClass) scope.safe("discover existing character menu", () => {
+        if (![...knownHosts.keys()].some(host => R.valid(host) && host.IsVisible()) && UE.WidgetBlueprintLibrary?.GetAllWidgetsOfClass) scope.safe("discover existing character menu", () => {
             const ref = P.$ref(UE.NewArray(UE.UserWidget));
             UE.WidgetBlueprintLibrary.GetAllWidgetsOfClass(R.gi(), ref, R.loadClass(C.paths.host), false);
             const list = P.$unref(ref);
@@ -123,19 +171,25 @@ function pollRoutes() {
         });
     }
     for (const [host, last] of knownHosts) {
-        if (!R.valid(host)) { knownHosts.delete(host); closeRoute(host, true); hosts.delete(host); continue; }
+        if (!R.valid(host)) { knownHosts.delete(host); removeTabListener(host); closeRoute(host, true); hosts.delete(host); continue; }
         if (!R.valid(host.TabList) || typeof host.IsVisible === "function" && !host.IsVisible() || routing.has(host)) continue;
         if (now - last >= 1000) {
             knownHosts.set(host, now);
-            if (!R.valid(host.TabList.GetTabButton(C.TAB)) || !R.valid(host.TabList.GetTabButton(C.MASK_TAB)))
-                scope.safe("repair dynamic tab registration", () => U.registerTab(host, settings));
+            scope.safe("repair dynamic tab registration", () => {
+                try {
+                    if (!U.tabsReady(host)) { U.registerTab(host, settings); trace("tabs-repaired", String(U.tabsReady(host))); }
+                } catch (error) { scope.report("repair dynamic tabs", error); }
+                observeTabs(host);
+            });
         }
         // Detect a real selected-tab change even when CommonUI invokes a cached
         // native delegate rather than the patched onTabSelected method.
         scope.safe("reconcile selected appearance tab", () => {
-            const selected = String(host.TabList.GetSelectedTabId()), requested = customTab(selected), route = routes.get(host);
+            const selected = selectedTab(host), requested = customTab(selected), route = routes.get(host);
+            const state = selected + "|" + (route?.phase || "native") + "|" + String(scope.safe("read tab caches", () => U.tabsReady(host)));
+            if (lastHostState.get(host) !== state) { lastHostState.set(host, state); trace("host-state", state + " " + describe(host)); }
             if (requested && route?.tab !== requested && failedTabs.get(host) !== requested && handleTab && nativeTab) {
-                scope.log("[Combined UI] recovered cached tab callback: " + requested);
+                trace("recovered-tab", requested);
                 handleTab.call(host, nativeTab, requested);
             } else if (!requested && selected && selected.toLowerCase() !== "none" && route?.phase === "active" && !route.selectionMismatch) {
                 closeRoute(host);
@@ -151,9 +205,14 @@ function pollRoutes() {
         if (!R.valid(host)) { closeRoute(host, true); hosts.delete(host); continue; }
         if (routing.has(host)) continue;
         if (typeof host.IsVisible === "function" && !host.IsVisible()) {
-            closeRoute(host); continue;
+            // Visibility may be transient during an actual native init. Only
+            // close a confirmed inactive host after a grace period.
+            route.hiddenSince ??= now;
+            if (now - route.hiddenSince > 1000) closeRoute(host);
+            continue;
         }
-        if (route.phase === "active" && (host.W_Appearance_V2 !== route.view || !nativeReady(host, route.view))) {
+        route.hiddenSince = undefined;
+        if (route.phase === "active" && host.W_Appearance_V2 !== route.view) {
             detachRouteView(route, true); route.phase = "pending"; route.started = Date.now();
         }
         if (route.phase === "pending") {
@@ -203,7 +262,14 @@ try {
     function ensure(host) {
         knownHosts.set(host, Date.now());
         if (!hosts.has(host)) hosts.set(host, null);
-        U.registerTab(host, settings);
+        try {
+            U.registerTab(host, settings);
+            trace("tabs-registered", String(U.tabsReady(host)) + " " + describe(host));
+        } catch (error) {
+            trace("tabs-register-error", String(error?.stack || error).slice(0,1800));
+            scope.report("register dynamic tabs", error);
+        }
+        scope.safe("observe selected tab", () => observeTabs(host));
     }
     for (const name of ["BP_FirstInitWidget", "BP_InitWidget"]) patch(H, name, "UI_Widget_Character_V3", C.paths.host, function (original, ...args) {
         const result = original.apply(this, args); scope.safe("register hair tab", () => ensure(this)); return result;
@@ -212,7 +278,8 @@ try {
     handleTab = function (original, tab) {
         // Native selection may synchronously call onTabSelected("Appearance")
         // again while the requested custom tab is being initialized.
-        if (routing.has(this)) return;
+        if (routing.has(this)) { trace("recursive-tab-skipped", String(tab)); return; }
+        trace("native-tab", String(tab) + " " + describe(this));
         failedTabs.delete(this);
         const requested = customTab(tab), previous = routes.get(this);
         if (requested && previous?.tab === requested && previous.phase === "active" &&
@@ -232,30 +299,38 @@ try {
                 }
                 return result;
             }
-            // Keep the native preview alive for switches inside Appearance.
-            // Release the previous overlay before the next owner captures visibility.
+            // Restore the upstream Studio entry sequence: finish the old view,
+            // then call native Appearance initialization on every custom tab switch.
+            // The lease survives the native Finish/Init pair.
             closeRoute(this);
             route = { host: this, tab: requested, view: null, page: null, token: null,
                 phase: "pending", started: Date.now(), refreshLanguage };
             routes.set(this, route);
             attachRouteView(route);
-            if (!nativeReady(this, this.W_Appearance_V2)) result = original.call(this, "Appearance");
+            const view = this.W_Appearance_V2;
+            if (R.valid(view) && R.valid(this.WidgetSwitcher_31) && this.WidgetSwitcher_31.GetActiveWidgetIndex() === 1) {
+                trace("native-finish-request", requested); view.FinishCurrentWidget(false);
+            }
+            trace("native-init-request", requested);
+            result = original.call(this, "Appearance");
+            if (routes.get(this) !== route) return result; // build failure already rolled back
             // Native code can replace the widget while initializing the shared page.
             attachRouteView(route);
             // Restore the logical tab once, under the reentrancy guard.
             if (R.valid(this.TabList) && customTab(this.TabList.GetSelectedTabId()) !== requested)
                 this.TabList.SelectTabByID(requested, true);
             route.selectionMismatch = R.valid(this.TabList) && customTab(this.TabList.GetSelectedTabId()) !== requested;
-            if (route.selectionMismatch) scope.log("[Combined UI] native tab selection differs from requested " + requested);
+            if (route.selectionMismatch) trace("tab-selection-mismatch", requested + " " + describe(this));
         } catch (error) {
             if (route) failRoute(route, error); else scope.report("select appearance tab", error);
         } finally { routing.delete(this); }
-        if (route) openRoute(route);
+        if (route) { openRoute(route); trace("native-return", route.tab + " phase=" + route.phase + " " + describe(this)); }
         return result;
     };
     patch(H, "onTabSelected", "UI_Widget_Character_V3", C.paths.host, handleTab);
     patch(A, "BP_InitWidget", "UI_Widget_Appearance", C.paths.appearance, function (original, ...args) {
         const route = byView.get(this);
+        if (route) trace("native-bp-init", route.tab);
         // Native outfit creation and input setup must run in full. A page is
         // not allowed to intercept them merely because its tab was requested.
         if (route?.phase === "active") {
@@ -266,7 +341,12 @@ try {
         initializing.add(this);
         try { result = original.apply(this, args); }
         finally { initializing.delete(this); }
-        if (route && !routing.has(route.host)) scope.later(() => openRoute(route), 0);
+        if (route) {
+            // This is the upstream opening point, even if CommonUI has not
+            // yet switched visibility. Do not depend on IsVisible in this hook.
+            openRoute(route, true);
+            if (route.phase === "pending") scope.later(() => openRoute(route), 0);
+        }
         else if (!route) {
             // A genuinely reinitialized native page may reuse a previous tab.
             for (const host of knownHosts.keys()) if (R.valid(host) && host.W_Appearance_V2 === this) failedTabs.delete(host);
@@ -277,6 +357,7 @@ try {
         const route = byView.get(this);
         compat.beforeNativeMenuClose(this);
         if (route) {
+            trace("native-finish", route.tab + " transitioning=" + (routing.has(route.host) || initializing.has(this)));
             if (routing.has(route.host) || initializing.has(this)) {
                 if (route.page) { scope.safe("leave before native finish", () => route.page.leave()); route.page.hairMode = false; }
                 route.phase = "pending";
@@ -296,14 +377,11 @@ try {
     });
     for (const name of ["createSlots", "updateUnifiedText", "refreshAllSlots", "refreshHatInputBar", "refreshReplaceOutfitInputBar"]) patch(A, name, "UI_Widget_Appearance", C.paths.appearance, function (original, ...args) {
         const page = pageFor(this);
-        // Never suppress native catalog construction. Framework slots must
-        // continue to exist even when a custom overlay covers the outfit grid.
-        if (name === "createSlots" || name === "refreshAllSlots") {
-            const result = original.apply(this, args);
-            if (page) scope.safe("refresh custom equipped markers", () => page.markEquipped());
-            return result;
-        }
+        // Restore upstream active-overlay behavior. Native init is always
+        // allowed before the overlay; afterwards native grid refreshes must
+        // not replace our overlay, selection, focus, or input bindings.
         if (page) {
+            if (name === "refreshAllSlots") scope.safe("refresh custom equipped markers", () => page.markEquipped());
             if (name === "refreshReplaceOutfitInputBar") scope.safe("refresh Studio input", () => page.refreshAction());
             return;
         }
@@ -363,6 +441,7 @@ try {
         helper.playMouseHoverSound(this, "SFX_UI_Int_Interface_Common_Hover_Square");
     });
     scope.cleanup(() => {
+        for (const host of [...tabListeners.keys()]) removeTabListener(host);
         const customHosts = new Set(routes.keys());
         for (const host of customHosts) scope.safe("release wardrobe route", () => closeRoute(host));
         for (const [host, page] of hosts) {
@@ -381,7 +460,8 @@ try {
         scope.safe("refresh gameplay fill intensity", () => appearance.playerFill.setIntensity(settings.fillIntensity));
         for (const component of appearance.records.keys()) scope.safe("refresh iris appearance", () => appearance.apply(component));
     }));
-    scope.repeat(pollRoutes, 100);
+    trace("startup", "menu repair 0.2.2; native finish/init restored");
+    scope.repeat(pollRoutes, 250);
     scope.repeat(() => appearance.tick(), 80);
     scope.log("loaded " + C.VERSION + "; native Hair and Masks tabs; " + C.gridStyles.length + " hairstyles, " + C.gridMasks.length + " masks; F restores defaults");
     exports.ready = true;
